@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Boutique API – Backend Checker</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 0; background: #f6f5f1; color: #222; }
+  header { background: #1a1a1a; color: #fff; padding: 16px 20px; position: sticky; top: 0; z-index: 10; }
+  header h1 { margin: 0 0 4px 0; font-size: 18px; }
+  header p { margin: 0; font-size: 13px; opacity: .7; }
+  .bar { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-top: 12px; }
+  .bar input { flex: 1; min-width: 240px; padding: 9px 12px; border-radius: 8px; border: 1px solid #444; background: #222; color: #fff; }
+  button { cursor: pointer; border: 0; border-radius: 8px; padding: 9px 14px; font-weight: 600; }
+  .btn-green { background: #22c55e; color: #fff; }
+  .btn-dark { background: #fff; color: #111; border: 1px solid #ddd; }
+  .btn-blue { background: #2563eb; color: #fff; }
+  .btn-red { background: #ef4444; color: #fff; }
+  .btn-ghost { background: #eee; }
+  main { max-width: 1100px; margin: 0 auto; padding: 20px; display: grid; gap: 16px; }
+  .card { background: #fff; border-radius: 14px; padding: 16px; border: 1px solid #e8e2d9; box-shadow: 0 2px 10px rgba(0,0,0,.04); }
+  .card h2 { margin: 0 0 10px 0; font-size: 16px; }
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  @media (max-width: 700px) { .row { grid-template-columns: 1fr; } }
+  label { font-size: 12px; font-weight: 700; display: block; margin: 8px 0 4px; }
+  input[type=text], input[type=number], textarea, select { width: 100%; padding: 9px 10px; border-radius: 8px; border: 1px solid #d9d2c5; }
+  textarea { min-height: 64px; resize: vertical; }
+  .status { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; }
+  .dot { width: 12px; height: 12px; border-radius: 50%; background: #999; display: inline-block; }
+  .dot.ok { background: #22c55e; } .dot.bad { background: #ef4444; } .dot.wait { background: #f59e0b; }
+  #log { background: #111; color: #d6ffd6; font-family: ui-monospace, Consolas, monospace; font-size: 12px; padding: 12px; border-radius: 10px; height: 260px; overflow: auto; white-space: pre-wrap; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 12px; }
+  .prod { border: 1px solid #eee; border-radius: 12px; overflow: hidden; background: #fff; }
+  .prod img { width: 100%; height: 170px; object-fit: cover; background: #eee; display: block; }
+  .prod .p-body { padding: 10px; }
+  .prod .p-body b { font-size: 14px; }
+  .muted { color: #777; font-size: 12px; }
+  .actions { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+  .actions button { font-size: 12px; padding: 7px 10px; }
+  .thumbs { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+  .thumbs div { position: relative; }
+  .thumbs img { width: 60px; height: 60px; object-fit: cover; border-radius: 8px; }
+  .thumbs button { position: absolute; top: -6px; right: -6px; width: 20px; height: 20px; padding: 0; border-radius: 50%; font-size: 12px; }
+  .flex { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  code { background: #eee; padding: 2px 6px; border-radius: 6px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Boutique Product API — Backend Checker</h1>
+  <p>Basic frontend to verify FastAPI + Supabase + Cloudinary. Covers all endpoints in <code>main.py</code>.</p>
+  <div class="bar">
+    <input id="baseUrl" value="http://127.0.0.1:8000" />
+    <button class="btn-green" onclick="checkHealth()">Check Health (GET /)</button>
+    <button class="btn-dark" onclick="loadProducts()">Reload Products (GET /products)</button>
+    <span class="status"><span id="dot" class="dot"></span><span id="statusText" style="color:#fff">not checked</span></span>
+  </div>
+</header>
+
+<main>
+  <div class="card">
+    <h2>1 — Health / Single product lookup</h2>
+    <div class="flex">
+      <input id="singleId" type="text" placeholder="Product ID e.g. 1" style="max-width:180px" />
+      <button class="btn-blue" onclick="getOne()">GET /products/{id}</button>
+      <button class="btn-ghost" onclick="document.getElementById('log').textContent=''">Clear log</button>
+      <a id="swaggerLink" href="http://127.0.0.1:8000/docs" target="_blank"><button class="btn-dark" type="button">Open Swagger /docs</button></a>
+    </div>
+    <p class="muted">Health checks <code>GET /</code>. If it fails, make sure backend is running: <code>uvicorn main:app --reload --port 8000</code> inside <code>zari_backend/</code>. Serve this file via <code>http://localhost:5500</code> (already in CORS) e.g. <code>python -m http.server 5500</code>, don't just double-click with <code>file://</code>.</p>
+  </div>
+
+  <div class="card">
+    <h2>2 — Create product (POST /products)</h2>
+    <div class="row">
+      <div>
+        <label>Product name *</label><input id="c_name" type="text" placeholder="Silk Saree" />
+        <label>Description</label><textarea id="c_desc" placeholder="Description..."></textarea>
+        <label>Color</label><input id="c_color" type="text" placeholder="Red" />
+      </div>
+      <div>
+        <label>Price *</label><input id="c_price" type="number" step="0.01" placeholder="1999" />
+        <label>Offer price (optional)</label><input id="c_offer" type="number" step="0.01" placeholder="1499" />
+        <label>Quantity</label><input id="c_qty" type="number" value="1" />
+        <label>Images * (1–5, JPG/PNG/WEBP)</label><input id="c_images" type="file" accept="image/jpeg,image/png,image/webp" multiple />
+      </div>
+    </div>
+    <div style="margin-top:10px" class="flex">
+      <button class="btn-blue" onclick="createProduct()">Create Product</button>
+      <span id="createMsg" class="muted"></span>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>3 — Products (<span id="count">0</span>)</h2>
+    <div id="products" class="grid"><p class="muted">Click “Reload Products” to fetch.</p></div>
+  </div>
+
+  <div class="card">
+    <h2>4 — Update / Add images (PUT, POST images)</h2>
+    <p class="muted">Click <b>Edit</b> on any product card to load it here. Or enter ID manually.</p>
+    <div class="row">
+      <div>
+        <label>Product ID</label><input id="u_id" type="text" placeholder="id" />
+        <label>Product name *</label><input id="u_name" type="text" />
+        <label>Description</label><textarea id="u_desc"></textarea>
+        <label>Color</label><input id="u_color" type="text" />
+      </div>
+      <div>
+        <label>Price *</label><input id="u_price" type="number" step="0.01" />
+        <label>Offer price</label><input id="u_offer" type="number" step="0.01" />
+        <label>Quantity</label><input id="u_qty" type="number" />
+        <label>Add images (POST /products/{id}/images)</label><input id="u_images" type="file" accept="image/jpeg,image/png,image/webp" multiple />
+      </div>
+    </div>
+    <div class="flex" style="margin-top:10px">
+      <button class="btn-blue" onclick="updateProduct()">PUT /products/{id}</button>
+      <button class="btn-dark" onclick="addImages()">POST /products/{id}/images</button>
+      <span id="updateMsg" class="muted"></span>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>5 — Request / Response log</h2>
+    <div id="log">Ready.\n</div>
+  </div>
+</main>
+
+<script>
+function base() { return document.getElementById('baseUrl').value.trim().replace(/\/$/, ''); }
+function setStatus(ok, txt) {
+  const d = document.getElementById('dot');
+  d.className = 'dot ' + (ok === null ? 'wait' : ok ? 'ok' : 'bad');
+  document.getElementById('statusText').textContent = txt;
+  document.getElementById('swaggerLink').href = base() + '/docs';
+}
+function log(msg, obj) {
+  const el = document.getElementById('log');
+  const t = new Date().toLocaleTimeString();
+  el.textContent += `\n[${t}] ${msg}\n`;
+  if (obj !== undefined) {
+    try { el.textContent += (typeof obj === 'string' ? obj : JSON.stringify(obj, null, 2)) + '\n'; }
+    catch(e) { el.textContent += String(obj) + '\n'; }
+  }
+  el.scrollTop = el.scrollHeight;
+}
+async function handleRes(res) {
+  const text = await res.text();
+  let data; try { data = JSON.parse(text); } catch { data = text; }
+  log(`${res.status} ${res.url}`, data);
+  return { ok: res.ok, status: res.status, data };
+}
+
+async function checkHealth() {
+  setStatus(null, 'checking...');
+  try {
+    const res = await fetch(base() + '/');
+    const r = await handleRes(res);
+    setStatus(r.ok, r.ok ? 'backend ONLINE' : 'backend ERROR ' + r.status);
+  } catch(e) { log('GET / failed: ' + e.message); setStatus(false, 'backend OFFLINE'); }
+}
+
+async function loadProducts() {
+  try {
+    const res = await fetch(base() + '/products');
+    const r = await handleRes(res);
+    if (!r.ok) return;
+    renderProducts(r.data.products || []);
+  } catch(e) { log('GET /products failed: ' + e.message); }
+}
+
+async function getOne() {
+  const id = document.getElementById('singleId').value.trim();
+  if (!id) return alert('Enter product ID');
+  try {
+    const res = await fetch(`${base()}/products/${id}`);
+    const r = await handleRes(res);
+    if (r.ok) { renderProducts([r.data]); }
+  } catch(e) { log('GET one failed: ' + e.message); }
+}
+
+function renderProducts(list) {
+  document.getElementById('count').textContent = list.length;
+  const box = document.getElementById('products');
+  box.innerHTML = '';
+  if (!list.length) { box.innerHTML = '<p class="muted">No products found.</p>'; return; }
+  list.forEach(p => {
+    const imgs = p.images || [];
+    const cover = imgs[0]?.image_url || '';
+    const div = document.createElement('div');
+    div.className = 'prod';
+    div.innerHTML = `
+      ${cover ? `<img src="${cover}" />` : `<div style="height:170px;display:flex;align-items:center;justify-content:center;background:#eee">no image</div>`}
+      <div class="p-body">
+        <b>#${p.id} ${escapeHtml(p.product_name || '')}</b>
+        <div class="muted">₹${p.price} ${p.offer_price ? `(offer ₹${p.offer_price})` : ''} · qty ${p.quantity} · ${escapeHtml(p.color || '')}</div>
+        <div class="muted">${escapeHtml((p.description || '').slice(0, 80))}</div>
+        <div class="thumbs">${imgs.map(i => `<div><img src="${i.image_url}" title="img ${i.id}"/><button title="Delete image ${i.id}" onclick="deleteImage('${i.id}')">×</button></div>`).join('')}</div>
+        <div class="actions">
+          <button class="btn-dark" onclick='prefill(${JSON.stringify(p.id)})'>Edit</button>
+          <button class="btn-red" onclick="deleteProduct('${p.id}')">Delete product</button>
+        </div>
+      </div>`;
+    box.appendChild(div);
+  });
+  // stash for prefill
+  window._lastProducts = Object.fromEntries(list.map(p => [p.id, p]));
+}
+
+function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+function prefill(id) {
+  const p = (window._lastProducts || {})[id];
+  if (!p) return;
+  document.getElementById('u_id').value = p.id;
+  document.getElementById('u_name').value = p.product_name || '';
+  document.getElementById('u_desc').value = p.description || '';
+  document.getElementById('u_color').value = p.color || '';
+  document.getElementById('u_price').value = p.price ?? '';
+  document.getElementById('u_offer').value = p.offer_price ?? '';
+  document.getElementById('u_qty').value = p.quantity ?? 0;
+  window.scrollTo({ top: document.getElementById('u_id').offsetTop - 80, behavior: 'smooth' });
+  log('Loaded product #' + id + ' into update form');
+}
+
+async function createProduct() {
+  const files = document.getElementById('c_images').files;
+  if (!document.getElementById('c_name').value.trim()) return alert('Product name required');
+  if (!document.getElementById('c_price').value) return alert('Price required');
+  if (!files.length) return alert('At least 1 image required (max 5)');
+  if (files.length > 5) return alert('Max 5 images');
+  const fd = new FormData();
+  fd.append('product_name', document.getElementById('c_name').value.trim());
+  fd.append('description', document.getElementById('c_desc').value);
+  fd.append('color', document.getElementById('c_color').value);
+  fd.append('price', document.getElementById('c_price').value);
+  const offer = document.getElementById('c_offer').value;
+  if (offer !== '') fd.append('offer_price', offer);
+  fd.append('quantity', document.getElementById('c_qty').value || '0');
+  for (const f of files) fd.append('images', f);
+  document.getElementById('createMsg').textContent = 'uploading...';
+  log('POST /products (multipart)', `fields: name,price,qty + ${files.length} file(s)`);
+  try {
+    const res = await fetch(base() + '/products', { method: 'POST', body: fd });
+    const r = await handleRes(res);
+    document.getElementById('createMsg').textContent = r.ok ? 'created #' + r.data.product.id : 'failed: ' + (r.data.detail || r.status);
+    if (r.ok) loadProducts();
+  } catch(e) { log('POST failed: ' + e.message); document.getElementById('createMsg').textContent = 'error'; }
+}
+
+async function updateProduct() {
+  const id = document.getElementById('u_id').value.trim();
+  if (!id) return alert('Enter product ID (or click Edit)');
+  const fd = new FormData();
+  fd.append('product_name', document.getElementById('u_name').value.trim());
+  fd.append('description', document.getElementById('u_desc').value);
+  fd.append('color', document.getElementById('u_color').value);
+  fd.append('price', document.getElementById('u_price').value);
+  const offer = document.getElementById('u_offer').value;
+  if (offer !== '') fd.append('offer_price', offer);
+  fd.append('quantity', document.getElementById('u_qty').value || '0');
+  document.getElementById('updateMsg').textContent = 'updating...';
+  log(`PUT /products/${id}`);
+  try {
+    const res = await fetch(`${base()}/products/${id}`, { method: 'PUT', body: fd });
+    const r = await handleRes(res);
+    document.getElementById('updateMsg').textContent = r.ok ? 'updated' : 'failed: ' + (r.data.detail || r.status);
+    if (r.ok) loadProducts();
+  } catch(e) { log('PUT failed: ' + e.message); }
+}
+
+async function addImages() {
+  const id = document.getElementById('u_id').value.trim();
+  const files = document.getElementById('u_images').files;
+  if (!id) return alert('Enter product ID');
+  if (!files.length) return alert('Choose image(s) first');
+  const fd = new FormData();
+  for (const f of files) fd.append('images', f);
+  log(`POST /products/${id}/images (${files.length} file(s))`);
+  try {
+    const res = await fetch(`${base()}/products/${id}/images`, { method: 'POST', body: fd });
+    const r = await handleRes(res);
+    if (r.ok) loadProducts();
+  } catch(e) { log('add images failed: ' + e.message); }
+}
+
+async function deleteProduct(id) {
+  if (!confirm('Delete product #' + id + ' + its images?')) return;
+  log(`DELETE /products/${id}`);
+  try {
+    const res = await fetch(`${base()}/products/${id}`, { method: 'DELETE' });
+    await handleRes(res);
+    loadProducts();
+  } catch(e) { log('delete failed: ' + e.message); }
+}
+
+async function deleteImage(imageId) {
+  if (!confirm('Delete image #' + imageId + '?')) return;
+  log(`DELETE /product-images/${imageId}`);
+  try {
+    const res = await fetch(`${base()}/product-images/${imageId}`, { method: 'DELETE' });
+    await handleRes(res);
+    loadProducts();
+  } catch(e) { log('delete image failed: ' + e.message); }
+}
+
+// auto-check on load + keep swagger link in sync
+document.getElementById('baseUrl').addEventListener('change', () => {
+  document.getElementById('swaggerLink').href = base() + '/docs';
+});
+checkHealth();
+</script>
+</body>
+</html>

@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find \"C:\\\\Users\\\\USER\\\\Downloads\\\\ec2ae0e7-0c7e-4b7f-9be3-cc24d1698915 2\" -maxdepth 3 -not -path \"*/node_modules*\" | head -60)"
+    ]
+  }
+}
