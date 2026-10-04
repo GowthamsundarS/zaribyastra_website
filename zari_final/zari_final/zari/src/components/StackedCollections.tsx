@@ -167,7 +167,7 @@ export function StackedCollections() {
           baseScale={0.86}
           stackPosition="16%"
           scaleEndPosition="8%"
-          blurAmount={1.2}
+          blurAmount={0}
           className="bg-ivory"
         >
           {exploreCards.map((product, i) => (
