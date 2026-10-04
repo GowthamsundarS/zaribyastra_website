@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { ArrowRight } from "lucide-react";
@@ -6,6 +7,23 @@ import { useCatalog } from "../contexts/CatalogContext";
 import { type Product } from "../data/catalog";
 
 const easeEditorial: [number, number, number, number] = [0.14, 1, 0.34, 1];
+
+// Mobile browsers drive scrolling on the compositor thread and throttle
+// JS scroll handlers, so per-frame pin/translate/scale updates visibly
+// jitter. On small screens the cards render as a plain static list instead.
+function useIsMobile(breakpoint = 767) {
+  const [isMobile, setIsMobile] = useState(
+    () => typeof window !== "undefined" && window.innerWidth <= breakpoint
+  );
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: " + breakpoint + "px)");
+    const onChange = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+    setIsMobile(mq.matches);
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, [breakpoint]);
+  return isMobile;
+}
 
 const FALLBACK_IMAGE = "/abaya-intro.webp";
 const FALLBACK_DESC =
@@ -93,6 +111,7 @@ export function StackedCollections() {
   // arrive async, and stale offsets are what made the stack "sometimes"
   // stick, overlap or show an empty run.
   const itemsKey = exploreCards.map((p) => p.id).join("|");
+  const isMobile = useIsMobile();
 
   return (
     <section id="collections" className="relative bg-ivory">
@@ -150,6 +169,21 @@ export function StackedCollections() {
           >
             Browse all pieces
           </Link>
+        </div>
+      ) : isMobile ? (
+        <div className="mx-auto grid max-w-6xl gap-8 px-6 py-10 sm:px-10">
+          {exploreCards.map((product, i) => (
+            <motion.div
+              key={`${product.id}-${i}`}
+              initial={{ opacity: 0, y: 32 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: "-40px" }}
+              transition={{ duration: 0.8, ease: easeEditorial }}
+              className="overflow-hidden rounded-[28px] shadow-[0_30px_60px_-30px_rgba(31,5,9,0.35)]"
+            >
+              <CollectionCard product={product} number={i + 1} />
+            </motion.div>
+          ))}
         </div>
       ) : (
         /* Window-scroll mode reuses the app's shared Lenis (SmoothScroll)
