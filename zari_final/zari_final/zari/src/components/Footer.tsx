@@ -39,7 +39,7 @@ export function Footer() {
             <WhatsAppIcon size={19} />
           </a>
           <a
-            href="https://instagram.com"
+            href="https://www.instagram.com/zaribyastra/"
             target="_blank"
             rel="noopener noreferrer"
             aria-label="ZARI on Instagram"
