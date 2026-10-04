@@ -4,4 +4,8 @@ python-multipart==0.0.20
 supabase==2.9.1
 cloudinary==1.41.0
 python-dotenv==1.0.1
-pydantic==2.10.4
+# pydantic-core (Rust extension) only ships prebuilt wheels for new
+# interpreters from 2.12+. Exact-pinning 2.10.x forces a maturin/Rust
+# build that fails on Python 3.14 (Render default). Floor allows pip to
+# resolve a version with cp313/cp314 wheels.
+pydantic>=2.12,<3
