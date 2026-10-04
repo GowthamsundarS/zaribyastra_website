@@ -1,7 +1,7 @@
-fastapi
-uvicorn[standard]
-python-multipart
-supabase
-cloudinary
-python-dotenv
-pydantic
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+python-multipart==0.0.20
+supabase==2.9.1
+cloudinary==1.41.0
+python-dotenv==1.0.1
+pydantic==2.10.4

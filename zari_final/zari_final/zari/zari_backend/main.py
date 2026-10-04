@@ -152,9 +152,42 @@ app.add_middleware(
         *_EXTRA_ORIGINS,
     ])),
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"]
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type"]
 )
+
+
+# =========================================================
+# SECURITY HEADERS (additive only — no route logic changed)
+# =========================================================
+
+@app.middleware("http")
+async def security_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("X-Frame-Options", "DENY")
+    response.headers.setdefault(
+        "Referrer-Policy", "strict-origin-when-cross-origin"
+    )
+    response.headers.setdefault(
+        "Permissions-Policy", "camera=(), microphone=(), geolocation=()"
+    )
+    # HSTS only makes sense over HTTPS; harmless on localhost.
+    response.headers.setdefault(
+        "Strict-Transport-Security",
+        "max-age=31536000; includeSubDomains"
+    )
+    # Permissive enough for Swagger UI + Cloudinary images.
+    response.headers.setdefault(
+        "Content-Security-Policy",
+        "default-src 'self'; "
+        "img-src 'self' data: https:; "
+        "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+        "font-src 'self' https://fonts.gstatic.com; "
+        "connect-src 'self' https:"
+    )
+    return response
 
 
 # =========================================================
@@ -453,6 +486,21 @@ DEFAULT_CATEGORIES = ["Abayas", "Premium Collection"]
 
 MAX_CATEGORY_LENGTH = 60
 
+MAX_PRODUCT_NAME_LENGTH = 200
+MAX_DESCRIPTION_LENGTH = 2000
+MAX_COLOR_LENGTH = 50
+
+
+def validate_text_length(field: str, value: str, limit: int) -> str:
+    """Trim + enforce a generous length cap (prevents DB bloat / stored-XSS payloads)."""
+    cleaned = (value or "").strip()
+    if len(cleaned) > limit:
+        raise HTTPException(
+            status_code=400,
+            detail=f"{field} must be under {limit} characters"
+        )
+    return cleaned
+
 
 def normalize_category(raw: str | None) -> str:
     """Trim + collapse whitespace. Empty falls back to 'Abayas'."""
@@ -730,13 +778,20 @@ async def create_product(
     # VALIDATE PRODUCT NAME
     # =====================================================
 
-    product_name = product_name.strip()
+    product_name = validate_text_length(
+        "Product name", product_name, MAX_PRODUCT_NAME_LENGTH
+    )
 
     if not product_name:
         raise HTTPException(
             status_code=400,
             detail="Product name is required"
         )
+
+    description = validate_text_length(
+        "Description", description, MAX_DESCRIPTION_LENGTH
+    )
+    color = validate_text_length("Color", color, MAX_COLOR_LENGTH)
 
 
     # =====================================================
@@ -1093,7 +1148,13 @@ async def create_product(
 # =========================================================
 
 @app.get("/products")
-def get_products():
+def get_products(limit: int = 100, offset: int = 0):
+
+    # Bounded pagination — defaults preserve the old "return all"
+    # behaviour for existing clients while preventing unbounded
+    # full-table + N+1 image fan-out on large catalogs.
+    limit = max(1, min(limit, 200))
+    offset = max(0, offset)
 
     try:
 
@@ -1105,35 +1166,29 @@ def get_products():
                 "created_at",
                 desc=True
             )
+            .range(offset, offset + limit - 1)
             .execute()
         )
 
 
-        products = products_response.data
+        products = products_response.data or []
+        product_ids = [p["id"] for p in products if p.get("id")]
 
-
-        # -------------------------------------------------
-        # Get images for each product
-        # -------------------------------------------------
-
-        for product in products:
-
+        images_by_product: dict[str, list] = {pid: [] for pid in product_ids}
+        if product_ids:
             images_response = (
                 supabase
                 .table("product_images")
                 .select("*")
-                .eq(
-                    "product_id",
-                    product["id"]
-                )
-                .order(
-                    "created_at",
-                    desc=False
-                )
+                .in_("product_id", product_ids)
+                .order("created_at", desc=False)
                 .execute()
             )
+            for img in images_response.data or []:
+                images_by_product.setdefault(img["product_id"], []).append(img)
 
-            product["images"] = images_response.data
+        for product in products:
+            product["images"] = images_by_product.get(product["id"], [])
 
 
         return {
@@ -1249,7 +1304,9 @@ def update_product(
     # VALIDATE PRODUCT NAME
     # =====================================================
 
-    product_name = product_name.strip()
+    product_name = validate_text_length(
+        "Product name", product_name, MAX_PRODUCT_NAME_LENGTH
+    )
 
     if not product_name:
 
@@ -1257,6 +1314,11 @@ def update_product(
             status_code=400,
             detail="Product name is required"
         )
+
+    description = validate_text_length(
+        "Description", description, MAX_DESCRIPTION_LENGTH
+    )
+    color = validate_text_length("Color", color, MAX_COLOR_LENGTH)
 
 
     # =====================================================
@@ -1290,6 +1352,7 @@ def update_product(
                 status_code=400,
                 detail="Offer price cannot be greater than price"
             )
+
 
 
     # =====================================================

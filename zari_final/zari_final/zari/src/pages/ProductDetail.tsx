@@ -13,6 +13,7 @@ import {
   MADE_TO_MEASURE,
 } from "../data/catalog";
 import { ADMIN_WHATSAPP, openWhatsAppOrder } from "../utils/whatsapp";
+import { Seo } from "../components/Seo";
 
 export function ProductDetail() {
   const { id } = useParams();
@@ -26,7 +27,7 @@ export function ProductDetail() {
   const photos =
     product && galleryImages(product).length > 0
       ? galleryImages(product)
-      : ["/brown-abaya.png"];
+      : ["/abaya-intro.webp"];
   const shown = Math.min(photo, photos.length - 1);
 
   // Reset gallery + quantity when navigating between products.
@@ -75,7 +76,29 @@ export function ProductDetail() {
     );
 
   return (
-    <main className="bg-ivory px-6 pb-28 pt-32 sm:px-10 lg:px-16">
+    <main id="main-content" className="bg-ivory px-6 pb-28 pt-32 sm:px-10 lg:px-16">
+      <Seo
+        title={`${product.name} — ZARI by Astra`}
+        description={(product.description || `Hand-finished ${product.name} modest luxury abaya by ZARI by Astra.`).slice(0, 160)}
+        path={`/product/${product.id}`}
+        image={photos[shown]}
+        jsonLd={{
+          "@context": "https://schema.org",
+          "@type": "Product",
+          name: product.name,
+          description: product.description,
+          category: product.category,
+          image: photos,
+          brand: { "@type": "Brand", name: "ZARI by Astra" },
+          offers: {
+            "@type": "Offer",
+            url: `https://zaribyastra.in/product/${product.id}`,
+            priceCurrency: "INR",
+            price: payable,
+            availability: "https://schema.org/InStock",
+          },
+        }}
+      />
       <BackButton />
       <div className="mx-auto grid max-w-6xl gap-14 lg:grid-cols-2 lg:gap-20">
         <motion.div
@@ -88,6 +111,10 @@ export function ProductDetail() {
             key={photos[shown]}
             src={photos[shown]}
             alt={product.name}
+            decoding="async"
+            width={900}
+            height={1200}
+            fetchPriority="high"
             className="aspect-[3/4] w-full object-cover object-top"
           />
           {photos.length > 1 && (
@@ -110,6 +137,9 @@ export function ProductDetail() {
                     src={src}
                     alt=""
                     loading="lazy"
+                    decoding="async"
+                    width={180}
+                    height={240}
                     className="h-full w-full object-cover object-top"
                   />
                 </button>

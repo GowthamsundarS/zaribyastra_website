@@ -32,7 +32,7 @@ export function Footer() {
           <a
             href="https://wa.me/918086545337"
             target="_blank"
-            rel="noreferrer"
+            rel="noopener noreferrer"
             aria-label="Chat with ZARI on WhatsApp"
             className="flex h-12 w-12 items-center justify-center rounded-full border border-ivory/25 text-ivory/80 transition-colors hover:border-gold hover:text-gold"
           >
@@ -41,7 +41,7 @@ export function Footer() {
           <a
             href="https://instagram.com"
             target="_blank"
-            rel="noreferrer"
+            rel="noopener noreferrer"
             aria-label="ZARI on Instagram"
             className="flex h-12 w-12 items-center justify-center rounded-full border border-ivory/25 text-ivory/80 transition-colors hover:border-gold hover:text-gold"
           >

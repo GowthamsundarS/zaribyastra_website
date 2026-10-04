@@ -7,7 +7,7 @@ import { type Product } from "../data/catalog";
 
 const easeEditorial: [number, number, number, number] = [0.14, 1, 0.34, 1];
 
-const FALLBACK_IMAGE = "/brown-abaya.png";
+const FALLBACK_IMAGE = "/abaya-intro.webp";
 const FALLBACK_DESC =
   "A ZARI piece — open it for fabric, cut and finishing details.";
 
@@ -31,6 +31,9 @@ function CollectionCard({
           src={product.image?.trim() || FALLBACK_IMAGE}
           alt={name}
           loading="lazy"
+          decoding="async"
+          width={896}
+          height={1200}
           onError={(e) => {
             const el = e.currentTarget;
             if (!el.src.endsWith(FALLBACK_IMAGE)) el.src = FALLBACK_IMAGE;

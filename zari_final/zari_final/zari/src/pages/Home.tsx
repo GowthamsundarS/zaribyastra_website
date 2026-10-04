@@ -2,6 +2,7 @@ import React, { useRef } from "react";
 import { motion, useScroll, useTransform } from "framer-motion";
 import { Hero } from "../components/Hero";
 import { StackedCollections } from "../components/StackedCollections";
+import { Seo } from "../components/Seo";
 
 const easeEditorial: [number, number, number, number] = [0.14, 1, 0.34, 1];
 
@@ -16,7 +17,12 @@ export function Home() {
   const rotateY = useTransform(introP, [0.12, 0.5, 0.88], [0, 24, 0]);
 
   return (
-    <main>
+    <main id="main-content">
+      <Seo
+        title="ZARI by Astra — Modest Luxury Abayas | Kerala, India"
+        description="ZARI by Astra — quietly crafted luxury abayas in crepe and silk, cut for movement and finished by hand in Kerala, India."
+        path="/"
+      />
       <Hero />
 
       {/* Introduction — brown abaya on the left, the house note on the right */}
@@ -41,6 +47,9 @@ export function Home() {
                 src="/abaya-intro.webp"
                 alt="Brown abaya with a matching draped hijab"
                 loading="lazy"
+                decoding="async"
+                width={896}
+                height={1200}
                 className="aspect-[9/16] w-full object-contain"
               />
             </motion.div>

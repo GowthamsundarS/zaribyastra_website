@@ -28,6 +28,7 @@ import {
   type Product,
 } from "../data/catalog";
 import { orderCount } from "../utils/whatsapp";
+import { Seo } from "../components/Seo";
 import { ImageCropModal } from "../components/ImageCropModal";
 import { getSharedLenis } from "../components/SmoothScroll";
 import { validateImageFile } from "../utils/cropImage";
@@ -591,7 +592,13 @@ function AdminDashboard({ onSignOut }: { onSignOut: () => void }) {
   }, [editing]);
 
   return (
-    <main className="mx-auto w-full max-w-6xl px-6 pb-24 pt-28 sm:px-8 md:pt-32">
+    <main id="main-content" className="mx-auto w-full max-w-6xl px-6 pb-24 pt-28 sm:px-8 md:pt-32">
+      <Seo
+        title="Atelier Access — ZARI by Astra"
+        description="Private atelier access for ZARI by Astra."
+        path="/admin"
+        noindex
+      />
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="font-sans text-[11px] uppercase tracking-[0.35em] text-maroon/60">

@@ -7,6 +7,7 @@ import {
 } from "react-router-dom";
 import { BagProvider } from "./contexts/BagContext";
 import { CatalogProvider } from "./contexts/CatalogContext";
+import { HelmetProvider } from "react-helmet-async";
 import { SmoothScroll, getSharedLenis } from "./components/SmoothScroll";
 import { Header } from "./components/Header";
 import { Home } from "./pages/Home";
@@ -14,6 +15,7 @@ import { Collection } from "./pages/Collection";
 import { ProductDetail } from "./pages/ProductDetail";
 import { Cart } from "./pages/Cart";
 import { Admin } from "./pages/Admin";
+import { NotFound } from "./pages/NotFound";
 import { Footer } from "./components/Footer";
 
 function ScrollManager() {
@@ -82,11 +84,18 @@ function ScrollManager() {
 
 export function App() {
   return (
+    <HelmetProvider>
     <CatalogProvider>
       <BagProvider>
         <BrowserRouter>
           <SmoothScroll>
             <div className="w-full bg-ivory">
+              <a
+                href="#main-content"
+                className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-[100] focus:bg-maroon focus:px-4 focus:py-2 focus:text-ivory"
+              >
+                Skip to content
+              </a>
               <ScrollManager />
               <Header />
               <Routes>
@@ -95,7 +104,7 @@ export function App() {
                 <Route path="/product/:id" element={<ProductDetail />} />
                 <Route path="/cart" element={<Cart />} />
                 <Route path="/admin" element={<Admin />} />
-                <Route path="*" element={<Home />} />
+                <Route path="*" element={<NotFound />} />
               </Routes>
               <Footer />
             </div>
@@ -103,6 +112,7 @@ export function App() {
         </BrowserRouter>
       </BagProvider>
     </CatalogProvider>
+    </HelmetProvider>
   );
 }
 

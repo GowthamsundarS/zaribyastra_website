@@ -32,7 +32,7 @@ export function ProductCard({
   const photos =
     galleryImages(product).length > 0
       ? galleryImages(product)
-      : ["/brown-abaya.png"];
+      : ["/abaya-intro.webp"];
   const [active, setActive] = useState(0);
   const shown = Math.min(active, photos.length - 1);
   const touchX = useRef<number | null>(null);
@@ -82,6 +82,9 @@ export function ProductCard({
             src={photos[shown]}
             alt={product.name}
             loading="lazy"
+            decoding="async"
+            width={768}
+            height={1024}
             className="aspect-[3/4] w-full object-cover object-top transition-transform duration-700 ease-out group-hover:scale-[1.045]"
           />
         </Link>
@@ -148,9 +151,9 @@ export function ProductCard({
           {product.category}
         </p>
         <Link to={`/product/${product.id}`}>
-          <h3 className="mt-2 font-display text-xl leading-snug text-maroon-ink transition-colors group-hover:text-maroon">
+          <h2 className="mt-2 font-display text-xl leading-snug text-maroon-ink transition-colors group-hover:text-maroon">
             {product.name}
-          </h3>
+          </h2>
         </Link>
         <p className="mt-2 line-clamp-2 font-sans text-xs leading-6 text-maroon-ink/60">
           {product.description}

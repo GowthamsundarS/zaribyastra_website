@@ -4,6 +4,7 @@ import { useCatalog } from "../contexts/CatalogContext";
 import { effectivePrice } from "../data/catalog";
 import { ProductCard } from "../components/ProductCard";
 import { BackButton } from "../components/BackButton";
+import { Seo } from "../components/Seo";
 import { haptic } from "../utils/haptics";
 
 const SPECIAL_FILTERS = ["New Arrivals", "Best Sellers"] as const;
@@ -54,7 +55,12 @@ export function Collection() {
   }, [products, filter, sort]);
 
   return (
-    <main className="bg-ivory px-6 pb-28 pt-32 sm:px-10 lg:px-16">
+    <main id="main-content" className="bg-ivory px-6 pb-28 pt-32 sm:px-10 lg:px-16">
+      <Seo
+        title="Explore the Collection — Luxury Abayas | ZARI by Astra"
+        description="Browse every ZARI abaya — new arrivals, best sellers and hand-finished modest luxury in warm earth tones."
+        path="/collection"
+      />
       <div className="mx-auto max-w-6xl">
         <BackButton />
         <motion.p

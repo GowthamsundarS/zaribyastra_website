@@ -5,6 +5,7 @@ import { ArrowLeft, Minus, Plus, ShoppingBag, Trash2 } from "lucide-react";
 import { useBag } from "../contexts/BagContext";
 import { useCatalog } from "../contexts/CatalogContext";
 import { BackButton } from "../components/BackButton";
+import { Seo } from "../components/Seo";
 import { formatINR, effectivePrice, discountPercent } from "../data/catalog";
 import { openWhatsAppOrder, type OrderLine } from "../utils/whatsapp";
 
@@ -45,7 +46,13 @@ export function Cart() {
   };
 
   return (
-    <main className="mx-auto w-full max-w-6xl px-6 pb-24 pt-32 sm:px-8 md:pt-40">
+    <main id="main-content" className="mx-auto w-full max-w-6xl px-6 pb-24 pt-32 sm:px-8 md:pt-40">
+      <Seo
+        title="Shopping Cart — ZARI by Astra"
+        description="Review your ZARI by Astra abaya selection. Orders are confirmed personally on WhatsApp."
+        path="/cart"
+        noindex
+      />
       <BackButton />
       <motion.div
         initial={{ opacity: 0, y: 18 }}
