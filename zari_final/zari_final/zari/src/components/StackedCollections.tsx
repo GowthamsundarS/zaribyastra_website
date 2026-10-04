@@ -9,8 +9,9 @@ import { type Product } from "../data/catalog";
 const easeEditorial: [number, number, number, number] = [0.14, 1, 0.34, 1];
 
 // Mobile browsers drive scrolling on the compositor thread and throttle
-// JS scroll handlers, so per-frame pin/translate/scale updates visibly
-// jitter. On small screens the cards render as a plain static list instead.
+// JS scroll handlers, so the desktop per-frame pin/translate/scale loop
+// visibly jitters. On small screens the cards use a pure CSS sticky stack
+// instead (see below) — same resting-over-each-other effect, no JS.
 function useIsMobile(breakpoint = 767) {
   const [isMobile, setIsMobile] = useState(
     () => typeof window !== "undefined" && window.innerWidth <= breakpoint
@@ -171,18 +172,37 @@ export function StackedCollections() {
           </Link>
         </div>
       ) : isMobile ? (
-        <div className="mx-auto grid max-w-6xl gap-8 px-6 py-10 sm:px-10">
+        /* Mobile stacked cards — pure CSS `position: sticky` stacking, zero
+            JS scroll handlers. The previous JS pin/translate/scale loop runs
+            on the main thread and visibly jitters on mobile browsers (touch
+            scrolling lives on the compositor thread, scroll events throttle),
+            which is why this was a static list for a while. Sticky offsets
+            are compositor-driven so the 4 cards rest over each other exactly
+            like the desktop ScrollStack, with no jitter.
+            NOTE: sticky children must be plain block flow (not grid) — a
+            grid item is constrained to its own row and can never overlap
+            the next card. */
+        <div className="mx-auto max-w-6xl px-6 py-10 sm:px-10">
           {exploreCards.map((product, i) => (
-            <motion.div
+            <div
               key={`${product.id}-${i}`}
-              initial={{ opacity: 0, y: 32 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, margin: "-40px" }}
-              transition={{ duration: 0.8, ease: easeEditorial }}
-              className="overflow-hidden rounded-[28px] shadow-[0_30px_60px_-30px_rgba(31,5,9,0.35)]"
+              className="mb-6 last:mb-0"
+              style={{
+                position: "sticky",
+                top: `calc(72px + ${i * 14}px)`,
+                zIndex: i + 1,
+              }}
             >
-              <CollectionCard product={product} number={i + 1} />
-            </motion.div>
+              <motion.div
+                initial={{ opacity: 0, y: 32 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, margin: "-40px" }}
+                transition={{ duration: 0.8, ease: easeEditorial }}
+                className="overflow-hidden rounded-[28px] bg-[#FBF7F0] shadow-[0_30px_60px_-30px_rgba(31,5,9,0.35)]"
+              >
+                <CollectionCard product={product} number={i + 1} />
+              </motion.div>
+            </div>
           ))}
         </div>
       ) : (
