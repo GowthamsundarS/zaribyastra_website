@@ -6,7 +6,7 @@
 @import 'tailwindcss/components';
 @import 'tailwindcss/utilities';
 
-/* END TAILWIND IMPORTS — ALL OTHER CSS MUST GO BELOW THIS LINE */
+
 html,
 body {
   background-color: #f7f2ea;
