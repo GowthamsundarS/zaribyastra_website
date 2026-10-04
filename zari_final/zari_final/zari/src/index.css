@@ -30,3 +30,50 @@ html.lenis body {
   background: #6b0f1a;
   color: #f7f2ea;
 }
+
+/* Hide the vertical browser scrollbar on mobile, keep scrolling functional */
+@media (max-width: 768px) {
+  html,
+  body {
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* IE / old Edge */
+  }
+  html::-webkit-scrollbar,
+  body::-webkit-scrollbar {
+    display: none; /* Chrome / Safari / new Edge */
+    width: 0;
+    height: 0;
+    background: transparent;
+  }
+  /* Any nested vertical scrollers should also hide their bar on mobile */
+  .scroll-stack-scroller {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .scroll-stack-scroller::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
+  }
+  /* Add / Edit product modal: single outer scroller on mobile, no visible bar */
+  .admin-modal-overlay {
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none;
+    -webkit-overflow-scrolling: touch;
+  }
+  .admin-modal-overlay::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
+    background: transparent;
+  }
+  .admin-modal-panel {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .admin-modal-panel::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
+  }
+}

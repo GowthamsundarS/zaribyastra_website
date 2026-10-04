@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { Minus, Plus } from "lucide-react";
 import { useCatalog } from "../contexts/CatalogContext";
 import { useBag } from "../contexts/BagContext";
+import { BackButton } from "../components/BackButton";
 import {
   formatINR,
   effectivePrice,
@@ -37,6 +38,7 @@ export function ProductDetail() {
   if (loading) {
     return (
       <main className="flex min-h-[70vh] flex-col items-center justify-center gap-6 bg-ivory px-6 pt-24">
+        <BackButton />
         <p className="font-display text-3xl italic text-maroon-ink/50">
           Unveiling the piece…
         </p>
@@ -47,6 +49,7 @@ export function ProductDetail() {
   if (!product) {
     return (
       <main className="flex min-h-[70vh] flex-col items-center justify-center gap-6 bg-ivory px-6 pt-24">
+        <BackButton />
         <p className="font-display text-3xl italic text-maroon-ink/50">
           This piece has left the atelier.
         </p>
@@ -73,6 +76,7 @@ export function ProductDetail() {
 
   return (
     <main className="bg-ivory px-6 pb-28 pt-32 sm:px-10 lg:px-16">
+      <BackButton />
       <div className="mx-auto grid max-w-6xl gap-14 lg:grid-cols-2 lg:gap-20">
         <motion.div
           initial={{ opacity: 0, y: 32 }}

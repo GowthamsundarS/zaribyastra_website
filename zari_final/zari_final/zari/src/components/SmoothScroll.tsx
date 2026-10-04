@@ -23,8 +23,9 @@ export function SmoothScroll({ children }: { children: React.ReactNode }) {
       touchMultiplier: 2,
       wheelMultiplier: 1,
       lerp: 0.1,
-      syncTouch: true,
-      syncTouchLerp: 0.075,
+      // Native touch scroll on mobile — syncTouch hijacks finger gestures
+      // and blocks scrolling inside fixed modals (e.g. Add Product).
+      syncTouch: false,
       infinite: false,
     });
     lenisInstance = lenis;

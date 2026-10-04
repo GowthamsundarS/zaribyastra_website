@@ -29,6 +29,7 @@ import {
 } from "../data/catalog";
 import { orderCount } from "../utils/whatsapp";
 import { ImageCropModal } from "../components/ImageCropModal";
+import { getSharedLenis } from "../components/SmoothScroll";
 import { validateImageFile } from "../utils/cropImage";
 
 const SESSION_KEY = "zari.admin";
@@ -563,15 +564,28 @@ function AdminDashboard({ onSignOut }: { onSignOut: () => void }) {
 
   useEffect(() => {
     if (!editing) return;
-    const prevOverflow = document.body.style.overflow;
+    const prevBodyOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
+    // Stop the window smoother so the background stays put while the
+    // modal uses plain native touch scroll (see data-lenis-prevent below).
+    const lenis = getSharedLenis();
+    try {
+      lenis?.stop();
+    } catch {
+      /* ignore */
+    }
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") closeForm();
     };
     window.addEventListener("keydown", onKey);
     return () => {
-      document.body.style.overflow = prevOverflow;
+      document.body.style.overflow = prevBodyOverflow;
       window.removeEventListener("keydown", onKey);
+      try {
+        lenis?.start();
+      } catch {
+        /* ignore */
+      }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editing]);
@@ -790,18 +804,22 @@ function AdminDashboard({ onSignOut }: { onSignOut: () => void }) {
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-maroon-ink/55 px-4 py-6 backdrop-blur-sm sm:px-6"
+          data-lenis-prevent
+          className="admin-modal-overlay fixed inset-0 z-50 overflow-y-auto bg-maroon-ink/55 backdrop-blur-sm"
+          style={{ WebkitOverflowScrolling: "touch", touchAction: "pan-y", overscrollBehavior: "contain" }}
           onClick={closeForm}
           role="dialog"
           aria-modal="true"
           aria-label={editingId ? "Edit product" : "Add product"}
         >
+          <div className="flex min-h-full w-full items-start justify-center px-4 py-4 sm:items-center sm:px-6 sm:py-6">
           <motion.section
             initial={{ opacity: 0, y: 22, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             transition={{ duration: 0.35, ease: easeEditorial }}
             onClick={(e) => e.stopPropagation()}
-            className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-2xl border border-maroon/15 bg-[#FFFEFB] p-6 shadow-[0_30px_70px_rgba(31,5,9,0.35)] sm:p-8"
+            data-lenis-prevent
+            className="admin-modal-panel w-full max-w-3xl overflow-visible rounded-2xl border border-maroon/15 bg-[#FFFEFB] p-6 shadow-[0_30px_70px_rgba(31,5,9,0.35)] sm:max-h-[90vh] sm:overflow-y-auto sm:overscroll-contain sm:p-8"
           >
             <div className="flex items-start justify-between gap-4">
               <h2 className="font-display text-3xl text-maroon-ink">
@@ -1117,6 +1135,7 @@ function AdminDashboard({ onSignOut }: { onSignOut: () => void }) {
               </button>
             </div>
           </motion.section>
+          </div>
         </motion.div>
       )}
 
@@ -1249,7 +1268,7 @@ function ExploreSlotPicker({
 }
 
 const inputCls =
-  "w-full rounded-xl border border-maroon/20 bg-ivory/60 px-4 py-2.5 font-sans text-sm text-maroon-ink outline-none transition-colors placeholder:text-maroon-ink/35 focus:border-maroon/50";
+  "w-full rounded-xl border border-maroon/20 bg-ivory/60 px-4 py-2.5 font-sans text-base text-maroon-ink outline-none transition-colors placeholder:text-maroon-ink/35 focus:border-maroon/50 sm:text-sm";
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
