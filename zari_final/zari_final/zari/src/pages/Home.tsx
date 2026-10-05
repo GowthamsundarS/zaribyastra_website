@@ -45,6 +45,8 @@ export function Home() {
             >
               <img
                 src="/abaya-intro.webp"
+                srcSet="/abaya-intro-480.webp 480w, /abaya-intro.webp 941w"
+                sizes="(max-width: 640px) calc(100vw - 48px), 448px"
                 alt="Brown abaya with a matching draped hijab"
                 loading="lazy"
                 decoding="async"
