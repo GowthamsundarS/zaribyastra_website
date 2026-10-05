@@ -200,6 +200,34 @@ def _invalidate_read_cache() -> None:
 
 
 # =========================================================
+# PERFORMANCE LOGGING (timings only — never secrets or tokens)
+# =========================================================
+# Emits one line per request, e.g.:
+#   [PERF] GET /products status=200 total=142ms
+# Endpoints add their own db/serialization split, e.g.:
+#   [PERF] GET /products status=200 db=120ms processing=15ms total=140ms
+# Method + path + status + durations only. Query strings, headers,
+# bodies, tokens and keys are never logged.
+
+@app.middleware("http")
+async def perf_logging(request: Request, call_next):
+    start = time.perf_counter()
+    response = await call_next(request)
+    total_ms = (time.perf_counter() - start) * 1000
+    # Additive header so PageSpeed/Timing-API can see server time
+    # without any extra request.
+    response.headers.setdefault("X-Response-Time", f"{total_ms:.1f}ms")
+    try:
+        print(
+            f"[PERF] {request.method} {request.url.path} "
+            f"status={response.status_code} total={total_ms:.0f}ms"
+        )
+    except Exception:
+        pass
+    return response
+
+
+# =========================================================
 # SECURITY HEADERS (additive only — no route logic changed)
 # =========================================================
 
@@ -657,6 +685,81 @@ def home():
 
 
 # =========================================================
+# SHARED PUBLIC READ BUILDERS (single source of truth)
+# =========================================================
+# _fetch_products() / _fetch_categories() build the exact response bodies
+# served by GET /products and GET /categories. The additive GET /home-data
+# endpoint reuses them so all three can never drift apart.
+#
+# Image reads select only the columns the frontend consumes
+# (id / product_id / image_url / public_id, plus created_at for gallery
+# ordering) instead of SELECT * — smaller payloads, same contract.
+
+PRODUCT_IMAGE_COLUMNS = "id,product_id,image_url,public_id,created_at"
+
+
+def _fetch_categories() -> tuple[dict, float]:
+    """Return (body, db_ms) for the categories response."""
+    t0 = time.perf_counter()
+    body = {
+        "categories": list_all_categories()
+    }
+    return body, (time.perf_counter() - t0) * 1000
+
+
+def _fetch_products(
+    limit: int = 100, offset: int = 0
+) -> tuple[dict, float, float]:
+    """Return (body, db_ms, processing_ms) for the products response."""
+    limit = max(1, min(limit, 200))
+    offset = max(0, offset)
+
+    t0 = time.perf_counter()
+    products_response = (
+        supabase
+        .table("products")
+        .select("*")
+        .order(
+            "created_at",
+            desc=True
+        )
+        .range(offset, offset + limit - 1)
+        .execute()
+    )
+
+
+    products = products_response.data or []
+    product_ids = [p["id"] for p in products if p.get("id")]
+
+    images_by_product: dict[str, list] = {pid: [] for pid in product_ids}
+    if product_ids:
+        images_response = (
+            supabase
+            .table("product_images")
+            .select(PRODUCT_IMAGE_COLUMNS)
+            .in_("product_id", product_ids)
+            .order("created_at", desc=False)
+            .execute()
+        )
+        for img in images_response.data or []:
+            images_by_product.setdefault(img["product_id"], []).append(img)
+    db_ms = (time.perf_counter() - t0) * 1000
+
+    t1 = time.perf_counter()
+    for product in products:
+        product["images"] = images_by_product.get(product["id"], [])
+        # List/grid cards render at ~350-450px wide: cap delivery at
+        # w_600 so phones download ~50-200KB instead of 2-5MB
+        # originals. Same keys, same order — frontend untouched.
+        optimize_product_payload(product, width=600)
+    body = {
+        "products": products
+    }
+    processing_ms = (time.perf_counter() - t1) * 1000
+    return body, db_ms, processing_ms
+
+
+# =========================================================
 # LIST CATEGORIES
 # =========================================================
 # Returns every known category so the frontend can render one
@@ -672,9 +775,16 @@ def get_categories():
                 content=cached,  # type: ignore[arg-type]
                 headers={"Cache-Control": "public, max-age=60"},
             )
-        body = {
-            "categories": list_all_categories()
-        }
+        t0 = time.perf_counter()
+        body, db_ms = _fetch_categories()
+        total_ms = (time.perf_counter() - t0) * 1000
+        try:
+            print(
+                f"[PERF] GET /categories status=200 "
+                f"db={db_ms:.0f}ms total={total_ms:.0f}ms"
+            )
+        except Exception:
+            pass
         _cache_set("categories", body)
         return JSONResponse(
             content=body,
@@ -682,6 +792,58 @@ def get_categories():
         )
     except Exception as e:
         raise internal_error("fetch categories", e)
+
+
+# =========================================================
+# HOME DATA (additive combined endpoint — no existing route changed)
+# =========================================================
+# Returns the /products and /categories bodies in a single round trip so
+# future clients can replace two sequential fetches with one. The frontend
+# is untouched and keeps using the existing endpoints; this only gives it
+# (or any HTTP client) the option later. Bodies are byte-identical in shape
+# to GET /products and GET /categories.
+
+@app.get("/home-data")
+def get_home_data(limit: int = 100, offset: int = 0):
+    limit = max(1, min(limit, 200))
+    offset = max(0, offset)
+    cache_key = f"home-data:{limit}:{offset}"
+    try:
+        cached = _cache_get(cache_key, PRODUCTS_CACHE_TTL)
+        if cached is not None:
+            return JSONResponse(
+                content=cached,  # type: ignore[arg-type]
+                headers={"Cache-Control": "public, max-age=30"},
+            )
+        t0 = time.perf_counter()
+        products_body, products_db_ms, products_proc_ms = _fetch_products(
+            limit, offset
+        )
+        categories_body, categories_db_ms = _fetch_categories()
+        body = {
+            "products": products_body["products"],
+            "categories": categories_body["categories"],
+        }
+        total_ms = (time.perf_counter() - t0) * 1000
+        try:
+            print(
+                f"[PERF] GET /home-data status=200 "
+                f"db={products_db_ms + categories_db_ms:.0f}ms "
+                f"total={total_ms:.0f}ms"
+            )
+        except Exception:
+            pass
+        _cache_set(cache_key, body)
+        # Prime the individual caches too — a /home-data miss warms the
+        # /products and /categories responses for free.
+        _cache_set(f"products:{limit}:{offset}", products_body)
+        _cache_set("categories", categories_body)
+        return JSONResponse(
+            content=body,
+            headers={"Cache-Control": "public, max-age=30"},
+        )
+    except Exception as e:
+        raise internal_error("fetch home data", e)
 
 
 # =========================================================
@@ -1222,46 +1384,17 @@ def get_products(limit: int = 100, offset: int = 0):
                 headers={"Cache-Control": "public, max-age=30"},
             )
 
-        products_response = (
-            supabase
-            .table("products")
-            .select("*")
-            .order(
-                "created_at",
-                desc=True
+        t0 = time.perf_counter()
+        body, db_ms, processing_ms = _fetch_products(limit, offset)
+        total_ms = (time.perf_counter() - t0) * 1000
+        try:
+            print(
+                f"[PERF] GET /products status=200 "
+                f"db={db_ms:.0f}ms processing={processing_ms:.0f}ms "
+                f"total={total_ms:.0f}ms"
             )
-            .range(offset, offset + limit - 1)
-            .execute()
-        )
-
-
-        products = products_response.data or []
-        product_ids = [p["id"] for p in products if p.get("id")]
-
-        images_by_product: dict[str, list] = {pid: [] for pid in product_ids}
-        if product_ids:
-            images_response = (
-                supabase
-                .table("product_images")
-                .select("*")
-                .in_("product_id", product_ids)
-                .order("created_at", desc=False)
-                .execute()
-            )
-            for img in images_response.data or []:
-                images_by_product.setdefault(img["product_id"], []).append(img)
-
-        for product in products:
-            product["images"] = images_by_product.get(product["id"], [])
-            # List/grid cards render at ~350-450px wide: cap delivery at
-            # w_600 so phones download ~50-200KB instead of 2-5MB
-            # originals. Same keys, same order — frontend untouched.
-            optimize_product_payload(product, width=600)
-
-
-        body = {
-            "products": products
-        }
+        except Exception:
+            pass
         _cache_set(cache_key, body)
         return JSONResponse(
             content=body,
@@ -1282,7 +1415,7 @@ def get_products(limit: int = 100, offset: int = 0):
 def get_product(product_id: str):
 
     try:
-
+        t0 = time.perf_counter()
         product_response = (
             supabase
             .table("products")
@@ -1313,7 +1446,7 @@ def get_product(product_id: str):
         images_response = (
             supabase
             .table("product_images")
-            .select("*")
+            .select(PRODUCT_IMAGE_COLUMNS)
             .eq(
                 "product_id",
                 product_id
@@ -1332,6 +1465,13 @@ def get_product(product_id: str):
         # embroidery detail while staying far below the multi-MB original.
         optimize_product_payload(product, width=1000)
 
+        try:
+            print(
+                f"[PERF] GET /products/{{id}} status=200 "
+                f"db={(time.perf_counter() - t0) * 1000:.0f}ms"
+            )
+        except Exception:
+            pass
         return JSONResponse(
             content=product,
             headers={"Cache-Control": "public, max-age=30"},
@@ -1736,7 +1876,7 @@ def reorder_product_images(
         ordered = (
             supabase
             .table("product_images")
-            .select("*")
+            .select(PRODUCT_IMAGE_COLUMNS)
             .eq("product_id", product_id)
             .order("created_at", desc=False)
             .execute()
