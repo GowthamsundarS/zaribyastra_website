@@ -1461,9 +1461,15 @@ def get_product(product_id: str):
 
         product["images"] = images_response.data
 
-        # Detail view renders up to ~900px wide: w_1000 keeps fabric /
-        # embroidery detail while staying far below the multi-MB original.
-        optimize_product_payload(product, width=1000)
+        # This backend URL is the universal fallback (older cached
+        # bundles without srcset, crawlers, scrapers, direct API users),
+        # so cap it near the largest real slot (~637px wide here) instead
+        # of w_1000: on a 941px original that cap served the 941px file
+        # (84KB WebP) for a 637px slot. w_800 serves 56KB with identical
+        # on-screen sharpness up to ~1.25 DPR. Current frontend bundles
+        # re-derive their own srcset ladder from this URL, so their
+        # DPR-sharp options are unaffected.
+        optimize_product_payload(product, width=800)
 
         try:
             print(
