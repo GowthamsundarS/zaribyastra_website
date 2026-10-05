@@ -29,9 +29,12 @@ from fastapi import (
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
+from fastapi.responses import JSONResponse
 from fastapi.openapi.utils import get_openapi
 
 from database import supabase
+from images import optimize_product_payload, optimize_image_row
 
 
 # =========================================================
@@ -156,6 +159,44 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["Authorization", "Content-Type"]
 )
+
+# Compress JSON API responses (images already come from Cloudinary CDN and
+# are never proxied through here, so this only shrinks API payloads).
+app.add_middleware(GZipMiddleware, minimum_size=1024)
+
+
+# =========================================================
+# LIGHTWEIGHT READ CACHE (same bodies, fewer Supabase hits)
+# =========================================================
+# GET /products and GET /categories are public, read-heavy and change
+# rarely. A short in-process TTL (30s products / 60s categories) absorbs
+# reload bursts on slow mobile networks without risking stale admin
+# views: every mutation below calls _invalidate_read_cache().
+_CACHE: dict[str, tuple[float, object]] = {}
+PRODUCTS_CACHE_TTL = 30.0
+CATEGORIES_CACHE_TTL = 60.0
+
+
+def _cache_get(key: str, ttl: float):
+    entry = _CACHE.get(key)
+    if not entry:
+        return None
+    ts, data = entry
+    if time.time() - ts > ttl:
+        _CACHE.pop(key, None)
+        return None
+    return data
+
+
+def _cache_set(key: str, data: object) -> None:
+    # Cap size so a pathological limit/offset fan-out can't grow memory.
+    if len(_CACHE) > 200:
+        _CACHE.clear()
+    _CACHE[key] = (time.time(), data)
+
+
+def _invalidate_read_cache() -> None:
+    _CACHE.clear()
 
 
 # =========================================================
@@ -625,9 +666,20 @@ def home():
 @app.get("/categories")
 def get_categories():
     try:
-        return {
+        cached = _cache_get("categories", CATEGORIES_CACHE_TTL)
+        if cached is not None:
+            return JSONResponse(
+                content=cached,  # type: ignore[arg-type]
+                headers={"Cache-Control": "public, max-age=60"},
+            )
+        body = {
             "categories": list_all_categories()
         }
+        _cache_set("categories", body)
+        return JSONResponse(
+            content=body,
+            headers={"Cache-Control": "public, max-age=60"},
+        )
     except Exception as e:
         raise internal_error("fetch categories", e)
 
@@ -647,6 +699,7 @@ def create_category(
     cleaned = normalize_category(name)
     validate_category(cleaned)
     ensure_category_exists(cleaned)
+    _invalidate_read_cache()
     return {
         "message": "Category ready",
         "category": cleaned,
@@ -1137,6 +1190,9 @@ async def create_product(
     # RETURN CREATED PRODUCT
     # =====================================================
 
+    _invalidate_read_cache()
+    for _img in image_response.data or []:
+        optimize_image_row(_img, width=800)
     return {
         "message": "Product created successfully",
         "product": product,
@@ -1157,7 +1213,14 @@ def get_products(limit: int = 100, offset: int = 0):
     limit = max(1, min(limit, 200))
     offset = max(0, offset)
 
+    cache_key = f"products:{limit}:{offset}"
     try:
+        cached = _cache_get(cache_key, PRODUCTS_CACHE_TTL)
+        if cached is not None:
+            return JSONResponse(
+                content=cached,  # type: ignore[arg-type]
+                headers={"Cache-Control": "public, max-age=30"},
+            )
 
         products_response = (
             supabase
@@ -1190,11 +1253,20 @@ def get_products(limit: int = 100, offset: int = 0):
 
         for product in products:
             product["images"] = images_by_product.get(product["id"], [])
+            # List/grid cards render at ~350-450px wide: cap delivery at
+            # w_600 so phones download ~50-200KB instead of 2-5MB
+            # originals. Same keys, same order — frontend untouched.
+            optimize_product_payload(product, width=600)
 
 
-        return {
+        body = {
             "products": products
         }
+        _cache_set(cache_key, body)
+        return JSONResponse(
+            content=body,
+            headers={"Cache-Control": "public, max-age=30"},
+        )
 
 
     except Exception as e:
@@ -1256,8 +1328,14 @@ def get_product(product_id: str):
 
         product["images"] = images_response.data
 
+        # Detail view renders up to ~900px wide: w_1000 keeps fabric /
+        # embroidery detail while staying far below the multi-MB original.
+        optimize_product_payload(product, width=1000)
 
-        return product
+        return JSONResponse(
+            content=product,
+            headers={"Cache-Control": "public, max-age=30"},
+        )
 
 
     except HTTPException:
@@ -1430,6 +1508,7 @@ def update_product(
             )
 
 
+        _invalidate_read_cache()
         return {
 
             "message": "Product updated successfully",
@@ -1581,6 +1660,9 @@ async def add_product_images(
                 pass
         raise internal_error("add product images save", e)
 
+    _invalidate_read_cache()
+    for _img in image_response.data or []:
+        optimize_image_row(_img, width=800)
     return {
         "message": "Images added successfully",
         "images": image_response.data
@@ -1662,6 +1744,9 @@ def reorder_product_images(
     except Exception as e:
         raise internal_error("reorder images readback", e)
 
+    _invalidate_read_cache()
+    for _img in ordered.data or []:
+        optimize_image_row(_img, width=800)
     return {
         "message": "Image order saved",
         "images": ordered.data
@@ -1741,6 +1826,7 @@ def delete_product_image(
     except Exception as e:
         raise internal_error("delete product image", e)
 
+    _invalidate_read_cache()
     return {
         "message": "Image deleted successfully",
         "image_id": image_id,
@@ -1838,6 +1924,7 @@ def delete_product(
         )
 
 
+        _invalidate_read_cache()
         return {
 
             "message": "Product deleted successfully",

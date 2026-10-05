@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { ArrowRight } from "lucide-react";
 import ScrollStack, { ScrollStackItem } from "./ScrollStack";
 import { useCatalog } from "../contexts/CatalogContext";
+import { cloudinarySrc, cloudinarySrcSet } from "../utils/cloudinary";
 import { type Product } from "../data/catalog";
 
 const easeEditorial: [number, number, number, number] = [0.14, 1, 0.34, 1];
@@ -47,7 +48,9 @@ function CollectionCard({
         className="block overflow-hidden"
       >
         <img
-          src={product.image?.trim() || FALLBACK_IMAGE}
+          src={cloudinarySrc(product.image?.trim() || FALLBACK_IMAGE, 800)}
+          srcSet={cloudinarySrcSet(product.image?.trim() || FALLBACK_IMAGE, [400, 600, 800, 1200])}
+          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 60vw, 42vw"
           alt={name}
           loading="lazy"
           decoding="async"

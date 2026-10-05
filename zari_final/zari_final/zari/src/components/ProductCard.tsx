@@ -10,6 +10,7 @@ import {
   galleryImages,
   MADE_TO_MEASURE,
 } from "../data/catalog";
+import { cloudinarySrc, cloudinarySrcSet } from "../utils/cloudinary";
 import { useBag } from "../contexts/BagContext";
 import { ADMIN_WHATSAPP, openWhatsAppOrder } from "../utils/whatsapp";
 import { haptic } from "../utils/haptics";
@@ -79,7 +80,9 @@ export function ProductCard({
         <Link to={`/product/${product.id}`} aria-label={`View ${product.name}`}>
           <img
             key={photos[shown]}
-            src={photos[shown]}
+            src={cloudinarySrc(photos[shown], 800)}
+            srcSet={cloudinarySrcSet(photos[shown], [400, 600, 800, 1200])}
+            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
             alt={product.name}
             loading="lazy"
             decoding="async"

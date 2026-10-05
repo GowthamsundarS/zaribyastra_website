@@ -13,6 +13,7 @@ import {
   MADE_TO_MEASURE,
 } from "../data/catalog";
 import { ADMIN_WHATSAPP, openWhatsAppOrder } from "../utils/whatsapp";
+import { cloudinarySrc, cloudinarySrcSet } from "../utils/cloudinary";
 import { Seo } from "../components/Seo";
 
 export function ProductDetail() {
@@ -109,7 +110,9 @@ export function ProductDetail() {
         >
           <img
             key={photos[shown]}
-            src={photos[shown]}
+            src={cloudinarySrc(photos[shown], 1000)}
+            srcSet={cloudinarySrcSet(photos[shown], [600, 800, 1000, 1400])}
+            sizes="(max-width: 1024px) 100vw, 50vw"
             alt={product.name}
             decoding="async"
             width={900}
@@ -134,7 +137,9 @@ export function ProductDetail() {
                   }
                 >
                   <img
-                    src={src}
+                    src={cloudinarySrc(src, 300)}
+                    srcSet={cloudinarySrcSet(src, [200, 300, 600])}
+                    sizes="120px"
                     alt=""
                     loading="lazy"
                     decoding="async"
