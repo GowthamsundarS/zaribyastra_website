@@ -116,6 +116,11 @@ export function toFrontend(row: BackendProduct): Product {
 // Request helper (throws Error with the backend's detail message)
 // ---------------------------------------------------------------------------
 
+// Fail fast on slow/flaky networks so the storefront falls back to the
+// local seed instead of stalling FCP/LCP. Default 3.5s; callers can
+// override via `init` (not part of the public API type).
+const REQUEST_TIMEOUT_MS = 3500;
+
 async function request(path: string, init?: RequestInit): Promise<unknown> {
   let res: Response;
   // Attach the admin session token when present — public reads ignore
@@ -125,12 +130,27 @@ async function request(path: string, init?: RequestInit): Promise<unknown> {
   if (token && !headers.has("Authorization")) {
     headers.set("Authorization", `Bearer ${token}`);
   }
+  const ctrl = new AbortController();
+  const timer = window.setTimeout(() => ctrl.abort(), REQUEST_TIMEOUT_MS);
   try {
-    res = await fetch(API_BASE + path, { ...init, headers });
-  } catch {
-    throw new Error(
-      "Couldn't reach the backend — is it running on " + API_BASE + "?"
-    );
+    try {
+      res = await fetch(API_BASE + path, {
+        ...init,
+        headers,
+        signal: init?.signal ?? ctrl.signal,
+      });
+    } catch (err) {
+      if (err instanceof DOMException && err.name === "AbortError") {
+        throw new Error(
+          "Backend timed out — showing cached collection (" + API_BASE + ")."
+        );
+      }
+      throw new Error(
+        "Couldn't reach the backend — is it running on " + API_BASE + "?"
+      );
+    }
+  } finally {
+    window.clearTimeout(timer);
   }
   const text = await res.text();
   let data: unknown = null;

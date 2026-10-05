@@ -34,9 +34,11 @@ const FALLBACK_DESC =
 function CollectionCard({
   product,
   number,
+  eager = false,
 }: {
   product: Product;
   number: number;
+  eager?: boolean;
 }) {
   const name = product.name?.trim() || "Untitled piece";
   const desc = product.description?.trim() || FALLBACK_DESC;
@@ -52,7 +54,9 @@ function CollectionCard({
           srcSet={cloudinarySrcSet(product.image?.trim() || FALLBACK_IMAGE, [320, 480, 640, 800, 1200])}
           sizes="(max-width: 640px) calc(100vw - 48px), (max-width: 1240px) 55vw, 650px"
           alt={name}
-          loading="lazy"
+          loading={eager ? "eager" : "lazy"}
+          // @ts-expect-error — React 18 types lack fetchPriority; Vite/browsers honour it.
+          fetchPriority={eager ? "high" : "auto"}
           decoding="async"
           width={896}
           height={1200}
@@ -203,7 +207,7 @@ export function StackedCollections() {
                 transition={{ duration: 0.8, ease: easeEditorial }}
                 className="overflow-hidden rounded-[28px] bg-[#FBF7F0] shadow-[0_30px_60px_-30px_rgba(31,5,9,0.35)]"
               >
-                <CollectionCard product={product} number={i + 1} />
+                <CollectionCard product={product} number={i + 1} eager={i === 0} />
               </motion.div>
             </div>
           ))}
@@ -232,7 +236,7 @@ export function StackedCollections() {
               key={`${product.id}-${i}`}
               itemClassName="zari-stack-card !h-auto !rounded-[28px] !p-0 !shadow-[0_30px_60px_-30px_rgba(31,5,9,0.35)]"
             >
-              <CollectionCard product={product} number={i + 1} />
+              <CollectionCard product={product} number={i + 1} eager={i === 0} />
             </ScrollStackItem>
           ))}
         </ScrollStack>

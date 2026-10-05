@@ -11,7 +11,11 @@ import {
 import { Menu, ShoppingBag, Sparkle, X } from "lucide-react";
 import { useBag } from "../contexts/BagContext";
 import { ZariMark } from "./ZariMark";
-import { HERO_INTRO_DELAY, HERO_INTRO_DURATION } from "./Hero";
+import {
+  HERO_INTRO_DELAY,
+  HERO_INTRO_DURATION,
+  shouldSkipIntro,
+} from "./Hero";
 
 const LINKS = [
   { label: "Home", to: "/" },
@@ -40,7 +44,7 @@ export function Header() {
   const introDone = useMotionValue(0);
   useEffect(() => {
     if (!isHome) return;
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    if (shouldSkipIntro()) {
       introDone.set(1);
       return;
     }

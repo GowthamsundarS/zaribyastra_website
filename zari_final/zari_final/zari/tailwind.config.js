@@ -19,7 +19,7 @@ export default {content: [
         // Montserrat stands in for Mograph; swap this stack when the real files land
         sans: ["Montserrat", "system-ui", "sans-serif"],
         arabic: ["Amiri", "serif"],
-        condensed: ["Anton", "Impact", "sans-serif"],
+        condensed: ["Impact", "sans-serif"],
       },
       transitionTimingFunction: {
         roman: "cubic-bezier(0.14, 1, 0.34, 1)",

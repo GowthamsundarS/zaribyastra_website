@@ -48,7 +48,9 @@ export function Home() {
                 srcSet="/abaya-intro-320.webp 320w, /abaya-intro-480.webp 480w, /abaya-intro-640.webp 640w, /abaya-intro.webp 941w"
                 sizes="(max-width: 640px) calc(100vw - 48px), 448px"
                 alt="Brown abaya with a matching draped hijab"
-                loading="lazy"
+                loading="eager"
+                // @ts-expect-error — React 18 types lack fetchPriority; Vite/browsers honour it.
+                fetchPriority="high"
                 decoding="async"
                 width={896}
                 height={1200}

@@ -81,7 +81,9 @@ const FULL_FORM = (p: Product): ProductForm => ({
 // (they are storefront dressing, not products). If the backend is
 // unreachable at load, the local seed is shown instead and `online` is false.
 export function CatalogProvider({ children }: { children: React.ReactNode }) {
-  const [products, setProducts] = useState<Product[]>([]);
+  // Perf: render the local seed instantly so home cards paint on first
+  // pass (no skeleton stall); backend revalidates in the background.
+  const [products, setProducts] = useState<Product[]>(() => loadProducts());
   const [collections, setCollections] = useState<CollectionSlot[]>(() =>
     loadCollections()
   );

@@ -1,4 +1,4 @@
-import React, { useLayoutEffect } from "react";
+import React, { Suspense, lazy, useLayoutEffect } from "react";
 import {
   BrowserRouter,
   Routes,
@@ -10,13 +10,22 @@ import { CatalogProvider } from "./contexts/CatalogContext";
 import { HelmetProvider } from "react-helmet-async";
 import { SmoothScroll, getSharedLenis } from "./components/SmoothScroll";
 import { Header } from "./components/Header";
-import { Home } from "./pages/Home";
-import { Collection } from "./pages/Collection";
-import { ProductDetail } from "./pages/ProductDetail";
-import { Cart } from "./pages/Cart";
-import { Admin } from "./pages/Admin";
-import { NotFound } from "./pages/NotFound";
 import { Footer } from "./components/Footer";
+
+// Route-level code-splitting: Home stays in the initial chunk for fast FCP,
+// everything else loads on demand so mobile downloads less JS up front.
+import { Home } from "./pages/Home";
+const Collection = lazy(() =>
+  import("./pages/Collection").then((m) => ({ default: m.Collection }))
+);
+const ProductDetail = lazy(() =>
+  import("./pages/ProductDetail").then((m) => ({ default: m.ProductDetail }))
+);
+const Cart = lazy(() => import("./pages/Cart").then((m) => ({ default: m.Cart })));
+const Admin = lazy(() => import("./pages/Admin").then((m) => ({ default: m.Admin })));
+const NotFound = lazy(() =>
+  import("./pages/NotFound").then((m) => ({ default: m.NotFound }))
+);
 
 function ScrollManager() {
   const { pathname, hash } = useLocation();
@@ -98,14 +107,16 @@ export function App() {
               </a>
               <ScrollManager />
               <Header />
-              <Routes>
-                <Route path="/" element={<Home />} />
-                <Route path="/collection" element={<Collection />} />
-                <Route path="/product/:id" element={<ProductDetail />} />
-                <Route path="/cart" element={<Cart />} />
-                <Route path="/admin" element={<Admin />} />
-                <Route path="*" element={<NotFound />} />
-              </Routes>
+              <Suspense fallback={null}>
+                <Routes>
+                  <Route path="/" element={<Home />} />
+                  <Route path="/collection" element={<Collection />} />
+                  <Route path="/product/:id" element={<ProductDetail />} />
+                  <Route path="/cart" element={<Cart />} />
+                  <Route path="/admin" element={<Admin />} />
+                  <Route path="*" element={<NotFound />} />
+                </Routes>
+              </Suspense>
               <Footer />
             </div>
           </SmoothScroll>

@@ -13,6 +13,23 @@ import { ZariMark } from "./ZariMark";
 // of the total intro duration.
 export const HERO_INTRO_DURATION = 2; // seconds
 export const HERO_INTRO_DELAY = 0.2; // seconds
+
+// Perf: skip the 2s intro (show final wordmark instantly) when animation
+// buys nothing — reduced-motion, data-saver, or 2G/slow-2G. Desktop
+// visuals are unchanged; LCP/SI on slow mobile stop paying ~2s.
+export function shouldSkipIntro(): boolean {
+  if (typeof window === "undefined") return false;
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches)
+    return true;
+  const conn = (navigator as unknown as { connection?: {
+    saveData?: boolean;
+    effectiveType?: string;
+  } }).connection;
+  if (conn?.saveData) return true;
+  if (conn?.effectiveType && ["slow-2g", "2g"].includes(conn.effectiveType))
+    return true;
+  return false;
+}
 const INTRO_DURATION = HERO_INTRO_DURATION;
 const HOLD_END = 0.16; // logo alone, breathing
 const ZOOM_END = 0.3; // zoom/focus into the logo
@@ -64,7 +81,7 @@ export function Hero() {
   const p = useMotionValue(0);
 
   useEffect(() => {
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    if (shouldSkipIntro()) {
       p.set(1);
       return;
     }

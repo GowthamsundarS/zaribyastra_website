@@ -41,26 +41,33 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link rel="preconnect" href="https://res.cloudinary.com" />
-    <!-- Same font families as before, loaded via <link> instead of CSS
-         @import so the browser discovers them earlier (less render delay).
-         Visual typography is unchanged (display=swap). -->
+    <!-- Perf: trimmed to only weights in use (Anton was unused, Amiri used
+         once). Fewer bytes + faster LCP on the hero wordmark. -->
     <link
       rel="preload"
       as="style"
-      href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Anton&family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=Montserrat:wght@400;500;600;700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Amiri:wght@400&family=Cormorant+Garamond:ital,wght@0,500;0,600;1,400&family=Montserrat:wght@500;600&display=swap"
     />
     <link
       rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Anton&family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=Montserrat:wght@400;500;600;700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Amiri:wght@400&family=Cormorant+Garamond:ital,wght@0,500;0,600;1,400&family=Montserrat:wght@500;600&display=swap"
       media="print"
       onload="this.media='all'"
     />
     <noscript>
       <link
         rel="stylesheet"
-        href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Anton&family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=Montserrat:wght@400;500;600;700&display=swap"
+        href="https://fonts.googleapis.com/css2?family=Amiri:wght@400&family=Cormorant+Garamond:ital,wght@0,500;0,600;1,400&family=Montserrat:wght@500;600&display=swap"
       />
     </noscript>
+    <!-- Perf: LCP image gets top network priority on first load. -->
+    <link
+      rel="preload"
+      as="image"
+      href="/abaya-intro.webp"
+      type="image/webp"
+      fetchpriority="high"
+    />
     <script type="application/ld+json">
       {
         "@context": "https://schema.org",
