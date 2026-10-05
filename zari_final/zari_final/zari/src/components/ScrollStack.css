@@ -85,11 +85,11 @@
 .scroll-stack-inner:has(.zari-stack-card) {
   max-width: 72rem;
   margin-inline: auto;
-  padding: 6vh 1.5rem 70vh;
+  padding: 6vh 1.5rem 90vh;
 }
 
 @media (min-width: 640px) {
   .scroll-stack-inner:has(.zari-stack-card) {
-    padding: 8vh 2.5rem 70vh;
+    padding: 8vh 2.5rem 90vh;
   }
 }

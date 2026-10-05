@@ -189,7 +189,7 @@ export function StackedCollections() {
           {exploreCards.map((product, i) => (
             <div
               key={`${product.id}-${i}`}
-              className="mb-6 last:mb-0"
+              className="mb-12 last:mb-0"
               style={{
                 position: "sticky",
                 top: `calc(72px + ${i * 14}px)`,
@@ -218,7 +218,7 @@ export function StackedCollections() {
           key={itemsKey}
           itemsKey={itemsKey}
           useWindowScroll
-          itemDistance={48}
+          itemDistance={64}
           itemStackDistance={28}
           itemScale={0.035}
           baseScale={0.86}
