@@ -7,6 +7,7 @@ import { useCatalog } from "../contexts/CatalogContext";
 import { BackButton } from "../components/BackButton";
 import { Seo } from "../components/Seo";
 import { formatINR, effectivePrice, discountPercent } from "../data/catalog";
+import { cloudinarySrc, cloudinarySrcSet } from "../utils/cloudinary";
 import { openWhatsAppOrder, type OrderLine } from "../utils/whatsapp";
 
 const easeEditorial: [number, number, number, number] = [0.14, 1, 0.34, 1];
@@ -104,8 +105,13 @@ export function Cart() {
                   className="aspect-[3/4] w-20 shrink-0 overflow-hidden rounded-xl bg-ivory sm:w-24"
                 >
                   <img
-                    src={product!.image}
+                    src={cloudinarySrc(product!.image, 200)}
+                    srcSet={cloudinarySrcSet(product!.image, [160, 320])}
+                    sizes="96px"
                     alt={product!.name}
+                    decoding="async"
+                    width={96}
+                    height={128}
                     className="h-full w-full object-cover object-top"
                   />
                 </Link>

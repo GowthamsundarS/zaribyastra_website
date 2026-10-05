@@ -110,9 +110,9 @@ export function ProductDetail() {
         >
           <img
             key={photos[shown]}
-            src={cloudinarySrc(photos[shown], 1000)}
-            srcSet={cloudinarySrcSet(photos[shown], [600, 800, 1000, 1400])}
-            sizes="(max-width: 1024px) 100vw, 50vw"
+            src={cloudinarySrc(photos[shown], 800)}
+            srcSet={cloudinarySrcSet(photos[shown], [480, 640, 800, 1000, 1200])}
+            sizes="(max-width: 1024px) calc(100vw - 48px), 536px"
             alt={product.name}
             decoding="async"
             width={900}

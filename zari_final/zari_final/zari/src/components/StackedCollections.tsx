@@ -48,8 +48,8 @@ function CollectionCard({
         className="block overflow-hidden"
       >
         <img
-          src={cloudinarySrc(product.image?.trim() || FALLBACK_IMAGE, 800)}
-          srcSet={cloudinarySrcSet(product.image?.trim() || FALLBACK_IMAGE, [400, 600, 800, 1200])}
+          src={cloudinarySrc(product.image?.trim() || FALLBACK_IMAGE, 600)}
+          srcSet={cloudinarySrcSet(product.image?.trim() || FALLBACK_IMAGE, [320, 480, 640, 800, 1200])}
           sizes="(max-width: 640px) calc(100vw - 48px), (max-width: 1240px) 55vw, 650px"
           alt={name}
           loading="lazy"

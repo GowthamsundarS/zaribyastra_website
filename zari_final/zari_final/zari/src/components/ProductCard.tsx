@@ -80,9 +80,9 @@ export function ProductCard({
         <Link to={`/product/${product.id}`} aria-label={`View ${product.name}`}>
           <img
             key={photos[shown]}
-            src={cloudinarySrc(photos[shown], 800)}
-            srcSet={cloudinarySrcSet(photos[shown], [400, 600, 800, 1200])}
-            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+            src={cloudinarySrc(photos[shown], 480)}
+            srcSet={cloudinarySrcSet(photos[shown], [320, 480, 640, 800, 1200])}
+            sizes="(max-width: 640px) calc(100vw - 48px), (max-width: 1024px) calc(50vw - 56px), 363px"
             alt={product.name}
             loading="lazy"
             decoding="async"
