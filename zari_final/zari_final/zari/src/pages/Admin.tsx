@@ -507,7 +507,7 @@ function AdminDashboard({ onSignOut }: { onSignOut: () => void }) {
           ? gallery.map((it) =>
               it.file ? { file: it.file } : { url: it.url }
             )
-          : [{ url: "/brown-abaya.png" }];
+          : [{ url: "/brown-abaya-768.webp" }];
     }
 
     const payload = {
@@ -702,7 +702,7 @@ function AdminDashboard({ onSignOut }: { onSignOut: () => void }) {
                     <td className="px-5 py-4">
                       <div className="flex items-center gap-3">
                         <img
-                          src={p.image || "/brown-abaya.png"}
+                          src={p.image || "/brown-abaya-768.webp"}
                           alt=""
                           className="aspect-[3/4] w-11 shrink-0 rounded-md object-cover object-top"
                         />
