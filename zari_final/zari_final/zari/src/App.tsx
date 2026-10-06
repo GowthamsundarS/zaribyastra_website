@@ -9,6 +9,7 @@ import { BagProvider } from "./contexts/BagContext";
 import { CatalogProvider } from "./contexts/CatalogContext";
 import { HelmetProvider } from "react-helmet-async";
 import { SmoothScroll, getSharedLenis } from "./components/SmoothScroll";
+import { BootLoader } from "./components/BootLoader";
 import { Header } from "./components/Header";
 import { Footer } from "./components/Footer";
 
@@ -99,6 +100,8 @@ export function App() {
         <BrowserRouter>
           <SmoothScroll>
             <div className="w-full bg-ivory">
+              {/* First-load veil (first visit per session only). */}
+              <BootLoader />
               <a
                 href="#main-content"
                 className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-[100] focus:bg-maroon focus:px-4 focus:py-2 focus:text-ivory"
