@@ -116,10 +116,14 @@ export function toFrontend(row: BackendProduct): Product {
 // Request helper (throws Error with the backend's detail message)
 // ---------------------------------------------------------------------------
 
-// Fail fast on slow/flaky networks so the storefront falls back to the
-// local seed instead of stalling FCP/LCP. Default 3.5s; callers can
-// override via `init` (not part of the public API type).
-const REQUEST_TIMEOUT_MS = 3500;
+// Fail fast on slow/flaky networks so the storefront falls back to its
+// cached collection instead of stalling FCP/LCP. The production backend
+// cold-starts after idle (free-tier hosting), which routinely exceeds a few
+// seconds on a first mobile visit — a shorter budget turned every cold start
+// into a guaranteed fallback. 12s covers a cold start without making a truly
+// unreachable backend feel hung; callers can override via `init` (not part
+// of the public API type).
+const REQUEST_TIMEOUT_MS = 12000;
 
 async function request(path: string, init?: RequestInit): Promise<unknown> {
   let res: Response;
@@ -142,7 +146,7 @@ async function request(path: string, init?: RequestInit): Promise<unknown> {
     } catch (err) {
       if (err instanceof DOMException && err.name === "AbortError") {
         throw new Error(
-          "Backend timed out — showing cached collection (" + API_BASE + ")."
+          "Backend timed out — showing the cached collection (" + API_BASE + ")."
         );
       }
       throw new Error(

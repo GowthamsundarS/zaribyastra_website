@@ -114,7 +114,7 @@ function LoadingSkeleton() {
 }
 
 export function StackedCollections() {
-  const { exploreCards, loading, products } = useCatalog();
+  const { exploreCards, loading, products, retry } = useCatalog();
   // Re-init the scroll stack whenever the card set resolves — products
   // arrive async, and stale offsets are what made the stack "sometimes"
   // stick, overlap or show an empty run.
@@ -169,8 +169,19 @@ export function StackedCollections() {
           <p className="font-display text-2xl italic text-maroon-ink/50">
             {products.length
               ? "The atelier is styling the next edit — check back soon."
-              : "Unveiling the edit…"}
+              : "The atelier could not be reached — check your connection and try again."}
           </p>
+          {products.length === 0 && !loading && (
+            <div>
+              <button
+                type="button"
+                onClick={() => void retry()}
+                className="mt-6 inline-block border-b border-maroon/40 pb-1 font-sans text-[11px] uppercase tracking-[0.35em] text-maroon"
+              >
+                Try again
+              </button>
+            </div>
+          )}
           <Link
             to="/collection"
             className="mt-6 inline-block border-b border-maroon/40 pb-1 font-sans text-[11px] uppercase tracking-[0.35em] text-maroon"
@@ -207,7 +218,7 @@ export function StackedCollections() {
                 transition={{ duration: 0.8, ease: easeEditorial }}
                 className="overflow-hidden rounded-[28px] bg-[#FBF7F0] shadow-[0_30px_60px_-30px_rgba(31,5,9,0.35)]"
               >
-                <CollectionCard product={product} number={i + 1} eager={i === 0} />
+                <CollectionCard product={product} number={i + 1} />
               </motion.div>
             </div>
           ))}
@@ -236,7 +247,7 @@ export function StackedCollections() {
               key={`${product.id}-${i}`}
               itemClassName="zari-stack-card !h-auto !rounded-[28px] !p-0 !shadow-[0_30px_60px_-30px_rgba(31,5,9,0.35)]"
             >
-              <CollectionCard product={product} number={i + 1} eager={i === 0} />
+              <CollectionCard product={product} number={i + 1} />
             </ScrollStackItem>
           ))}
         </ScrollStack>

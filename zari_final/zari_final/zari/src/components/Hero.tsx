@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   motion,
   animate,
@@ -15,8 +15,9 @@ export const HERO_INTRO_DURATION = 2; // seconds
 export const HERO_INTRO_DELAY = 0.2; // seconds
 
 // Perf: skip the 2s intro (show final wordmark instantly) when animation
-// buys nothing — reduced-motion, data-saver, or 2G/slow-2G. Desktop
-// visuals are unchanged; LCP/SI on slow mobile stop paying ~2s.
+// buys nothing — reduced-motion, data-saver, or slow networks (2G/3G).
+// Desktop + fast-mobile visuals are unchanged; LCP/SI on slow mobile stop
+// paying ~2s for choreography.
 export function shouldSkipIntro(): boolean {
   if (typeof window === "undefined") return false;
   if (window.matchMedia("(prefers-reduced-motion: reduce)").matches)
@@ -26,7 +27,10 @@ export function shouldSkipIntro(): boolean {
     effectiveType?: string;
   } }).connection;
   if (conn?.saveData) return true;
-  if (conn?.effectiveType && ["slow-2g", "2g"].includes(conn.effectiveType))
+  if (
+    conn?.effectiveType &&
+    ["slow-2g", "2g", "3g"].includes(conn.effectiveType)
+  )
     return true;
   return false;
 }
@@ -93,7 +97,9 @@ export function Hero() {
     return () => controls.stop();
   }, [p]);
 
-  useEffect(() => {
+  // Layout: measured in useLayoutEffect (before first paint) so the opening
+  // frame already has the correct scale/centre — no wordmark jump, no CLS.
+  useLayoutEffect(() => {
     const measure = () => {
       const row = rowRef.current;
       const logo = logoRef.current;

@@ -38,12 +38,30 @@ export function ProductDetail() {
   }, [id]);
 
   if (loading) {
+    // Dimension-matched skeleton: same max-w-6xl 2-col grid + 3/4 image
+    // aspect as the loaded layout, so no CLS when the product resolves.
+    // No product imagery renders until it is real backend data.
     return (
-      <main className="flex min-h-[70vh] flex-col items-center justify-center gap-6 bg-ivory px-6 pt-24">
+      <main className="bg-ivory px-6 pb-28 pt-32 sm:px-10 lg:px-16">
         <BackButton />
-        <p className="font-display text-3xl italic text-maroon-ink/50">
-          Unveiling the piece…
-        </p>
+        <div
+          className="mx-auto grid max-w-6xl animate-pulse gap-14 lg:grid-cols-2 lg:gap-20"
+          aria-busy="true"
+          aria-label="Loading the piece"
+        >
+          <div className="aspect-[3/4] w-full bg-maroon/10" aria-hidden="true" />
+          <div className="flex flex-col" aria-hidden="true">
+            <div className="h-2 w-28 bg-maroon/10" />
+            <div className="mt-4 h-10 w-3/4 bg-maroon/10" />
+            <div className="mt-6 h-4 w-1/3 bg-maroon/10" />
+            <div className="mt-8 h-px w-20 bg-maroon/15" />
+            <div className="mt-8 h-4 w-full bg-maroon/10" />
+            <div className="mt-3 h-4 w-5/6 bg-maroon/10" />
+            <p className="mt-8 font-display text-2xl italic text-maroon-ink/40">
+              Unveiling the piece…
+            </p>
+          </div>
+        </div>
       </main>
     );
   }

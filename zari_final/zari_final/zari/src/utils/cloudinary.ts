@@ -14,16 +14,18 @@
 const UPLOAD_MARKER = "/image/upload/";
 
 /**
- * Responsive ladders for legacy local seed assets. These files predate the
- * Cloudinary pipeline (they render when the catalog falls back to the local
- * seed) and were previously served as single multi-hundred-KB files with no
- * srcset at all — e.g. /brown-abaya.png was 1455 KB for a ~634px slot.
- * Variants are the same pixels at smaller widths (alpha preserved where the
- * source had transparency), so visuals are identical.
+ * Responsive ladder for the one local asset the storefront legitimately
+ * renders: the brand intro image (hero-adjacent section, card fallback and
+ * social preview). Variants are the same pixels at smaller widths, so
+ * visuals are identical while phones download right-sized files.
  *
  * Components keep passing their own layout-accurate `sizes`; this map only
  * supplies the width-tagged choices, exactly like the Cloudinary ladder.
  * Unknown local files still pass through untouched.
+ *
+ * NOTE: ladders for the removed design-phase seed images used to live here.
+ * They were deleted together with the seed data — no component may reference
+ * those old local files anymore, so there is nothing to build a ladder for.
  */
 interface LocalLadder {
   /** width -> file, ascending */
@@ -48,33 +50,6 @@ function ladder(
 }
 
 const LOCAL_SRCSETS: Record<string, LocalLadder> = {
-  "/brown-abaya.png": ladder(
-    [
-      { width: 320, file: "/brown-abaya-320.webp" },
-      { width: 480, file: "/brown-abaya-480.webp" },
-      { width: 640, file: "/brown-abaya-640.webp" },
-      { width: 768, file: "/brown-abaya-768.webp" },
-      { width: 1024, file: "/brown-abaya-1024.webp" },
-    ],
-    768
-  ),
-  "/94ab9240-bcc5-4d4e-9158-3ab38763c2cb.jpg": ladder(
-    [
-      { width: 480, file: "/layla-kaftan-480.webp" },
-      { width: 640, file: "/layla-kaftan-640.webp" },
-      { width: 768, file: "/layla-kaftan-768.webp" },
-    ],
-    640
-  ),
-  "/15483af7-bc75-4e08-9658-218e4c66fce8.jpg": ladder(
-    [
-      { width: 480, file: "/hana-open-480.webp" },
-      { width: 640, file: "/hana-open-640.webp" },
-      { width: 768, file: "/hana-open-768.webp" },
-      { width: 896, file: "/15483af7-bc75-4e08-9658-218e4c66fce8.jpg" },
-    ],
-    640
-  ),
   "/abaya-intro.webp": ladder(
     [
       { width: 320, file: "/abaya-intro-320.webp" },
@@ -134,8 +109,9 @@ export function cloudinarySrcSet(
 ): string | undefined {
   if (!url || typeof url !== "string") return undefined;
   const clean = url.trim();
-  // Legacy local seed assets get their fixed local ladder (same pixels,
-  // right-sized files) — the caller's `sizes` still governs the pick.
+  // The one legitimate local asset gets its fixed local ladder (same
+  // pixels, right-sized files) — the caller's `sizes` still governs the
+  // pick.
   const local = LOCAL_SRCSETS[clean];
   if (local) return local.srcSet;
   if (!clean.includes("res.cloudinary.com")) return undefined;
@@ -153,8 +129,8 @@ export function cloudinarySrc(
   if (!url) return "";
   if (typeof url !== "string") return "";
   const clean = url.trim();
-  // Legacy local asset: serve the smallest variant that covers the
-  // requested width instead of the multi-hundred-KB original.
+  // Legitimate local asset: serve the smallest variant that covers the
+  // requested width instead of the full-size original.
   const local = LOCAL_SRCSETS[clean];
   if (local) {
     const w = Math.round(width) || 800;

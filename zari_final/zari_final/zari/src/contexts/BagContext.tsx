@@ -37,20 +37,23 @@ function load(): BagItem[] {
 }
 
 export function BagProvider({ children }: { children: React.ReactNode }) {
-  const { products } = useCatalog();
+  const { products, loading } = useCatalog();
   const [items, setItems] = useState<BagItem[]>(load);
 
   // The header badge counts bag rows, so a piece deleted from the catalog has
   // to leave the bag too — otherwise the storefront advertises an item nobody
-  // can buy.
+  // can buy. Skipped until the catalog has resolved: on first paint the
+  // product list is still loading (possibly empty), and pruning against an
+  // unresolved list would silently empty a returning shopper's bag.
   useEffect(() => {
+    if (loading || !products.length) return;
     setItems((prev) => {
       const alive = prev.filter((i) =>
         products.some((p) => p.id === i.productId)
       );
       return alive.length === prev.length ? prev : alive;
     });
-  }, [products]);
+  }, [products, loading]);
 
   useEffect(() => {
     try {

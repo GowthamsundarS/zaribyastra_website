@@ -15,6 +15,10 @@ import { useBag } from "../contexts/BagContext";
 import { ADMIN_WHATSAPP, openWhatsAppOrder } from "../utils/whatsapp";
 import { haptic } from "../utils/haptics";
 
+// Brand fallback when a product row has no usable photo (or its file fails
+// to load). This is a neutral house image, never an outdated product photo.
+const FALLBACK_IMAGE = "/abaya-intro.webp";
+
 export function ProductCard({
   product,
   index,
@@ -33,7 +37,7 @@ export function ProductCard({
   const photos =
     galleryImages(product).length > 0
       ? galleryImages(product)
-      : ["/abaya-intro.webp"];
+      : [FALLBACK_IMAGE];
   const [active, setActive] = useState(0);
   const shown = Math.min(active, photos.length - 1);
   const touchX = useRef<number | null>(null);
@@ -88,6 +92,10 @@ export function ProductCard({
             decoding="async"
             width={768}
             height={1024}
+            onError={(e) => {
+              const el = e.currentTarget;
+              if (!el.src.endsWith(FALLBACK_IMAGE)) el.src = FALLBACK_IMAGE;
+            }}
             className="aspect-[3/4] w-full object-cover object-top transition-transform duration-700 ease-out group-hover:scale-[1.045]"
           />
         </Link>

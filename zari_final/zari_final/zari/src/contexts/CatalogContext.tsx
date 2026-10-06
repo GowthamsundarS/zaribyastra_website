@@ -41,9 +41,11 @@ interface CatalogContextValue {
   exploreCards: Product[];
   /** True while the first backend fetch is in flight. */
   loading: boolean;
-  /** False when the backend was unreachable (local seed is shown). */
+  /** False when the backend was unreachable (cached data or skeleton shown). */
   online: boolean;
   refreshCategories: () => Promise<void>;
+  /** Re-run the initial backend fetch (used by empty-state retry buttons). */
+  retry: () => Promise<void>;
   getProduct: (id: string) => Product | undefined;
   getExploreSlot: (productId: string) => ExploreSlot;
   setExploreSlot: (productId: string, slot: ExploreSlot) => void;
@@ -78,11 +80,14 @@ const FULL_FORM = (p: Product): ProductForm => ({
 });
 
 // Catalog backed by the FastAPI backend. Collections stay in localStorage
-// (they are storefront dressing, not products). If the backend is
-// unreachable at load, the local seed is shown instead and `online` is false.
+// (they are storefront dressing, not products). The initial state is the
+// last good backend response if one is cached, else EMPTY — the UI shows a
+// loading skeleton until the backend responds. Hardcoded design-phase
+// products are never rendered, so a first-time visitor can never see
+// outdated images that later "correct" themselves.
 export function CatalogProvider({ children }: { children: React.ReactNode }) {
-  // Perf: render the local seed instantly so home cards paint on first
-  // pass (no skeleton stall); backend revalidates in the background.
+  // Real cached data paints instantly when present (proper
+  // stale-while-revalidate); otherwise the first paint is a skeleton.
   const [products, setProducts] = useState<Product[]>(() => loadProducts());
   const [collections, setCollections] = useState<CollectionSlot[]>(() =>
     loadCollections()
@@ -166,10 +171,13 @@ export function CatalogProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const refresh = useCallback(async () => {
-    const list = await api.listProducts();
+    // Parallel: one round trip instead of two sequential ones on slow mobile.
+    const [list] = await Promise.all([
+      api.listProducts(),
+      refreshCategories(),
+    ]);
     setProducts(list);
     saveProducts(list);
-    await refreshCategories();
     return list;
   }, [refreshCategories]);
 
@@ -190,8 +198,10 @@ export function CatalogProvider({ children }: { children: React.ReactNode }) {
         }
       } catch {
         if (!cancelled) {
-          // Backend down — fall back to the local copy so the shop still renders.
-          setProducts(loadProducts());
+          // Backend unreachable (cold start, offline, timeout) — keep the
+          // last good cache (possibly empty) so the UI shows either real
+          // data or a skeleton with a retry affordance. Never substitute
+          // hardcoded/placeholder products here.
           setOnline(false);
         }
       } finally {
@@ -202,6 +212,18 @@ export function CatalogProvider({ children }: { children: React.ReactNode }) {
       cancelled = true;
     };
   }, []);
+
+  const retry = useCallback(async (): Promise<void> => {
+    setLoading(true);
+    try {
+      await refresh();
+      setOnline(true);
+    } catch {
+      setOnline(false);
+    } finally {
+      setLoading(false);
+    }
+  }, [refresh]);
 
   const getProduct = useCallback(
     (id: string) => products.find((p) => p.id === id),
@@ -284,13 +306,17 @@ export function CatalogProvider({ children }: { children: React.ReactNode }) {
 
   const resetCatalog = useCallback(() => {
     try {
+      // Current key plus any pre-fix key that may hold seed rows.
+      localStorage.removeItem("zari.catalog.v3");
       localStorage.removeItem("zari.catalog.v2");
     } catch {
       /* ignore */
     }
     clearCollections();
     setCollections(loadCollections());
-    void refresh().catch(() => setProducts(loadProducts()));
+    void refresh().catch(() => {
+      /* keep current in-memory state — never restore seed rows */
+    });
   }, [refresh]);
 
   const value = useMemo(
@@ -303,6 +329,7 @@ export function CatalogProvider({ children }: { children: React.ReactNode }) {
       loading,
       online,
       refreshCategories,
+      retry,
       getProduct,
       getExploreSlot,
       setExploreSlot,
@@ -323,6 +350,7 @@ export function CatalogProvider({ children }: { children: React.ReactNode }) {
       loading,
       online,
       refreshCategories,
+      retry,
       getProduct,
       getExploreSlot,
       setExploreSlot,

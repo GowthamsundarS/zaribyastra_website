@@ -19,7 +19,7 @@ type Sort = keyof typeof SORTS;
 export function Collection() {
   // One tab per category (dynamic) + All + specials. A category typed in
   // Admin spawns its own tab here as soon as its product exists.
-  const { products, categories, loading } = useCatalog();
+  const { products, categories, loading, retry } = useCatalog();
   const [filter, setFilter] = useState<string>("All");
   const [sort, setSort] = useState<Sort>("newest");
 
@@ -129,11 +129,46 @@ export function Collection() {
         </div>
 
         {visible.length === 0 ? (
-          <p className="py-24 text-center font-display text-2xl italic text-maroon-ink/40">
-            {loading
-              ? "Unveiling the edit…"
-              : "Nothing in this edit yet — something beautiful is coming."}
-          </p>
+          loading ? (
+            // First paint before the backend responds: skeleton cards with the
+            // same grid + aspect ratio as real cards, so the layout reserves
+            // the correct space and never shifts when products arrive. No
+            // product imagery is rendered until it is real backend data.
+            <div
+              className="mt-14 grid gap-x-8 gap-y-16 sm:grid-cols-2 lg:grid-cols-3"
+              aria-busy="true"
+              aria-label="Loading the collection"
+            >
+              {[0, 1, 2, 3, 4, 5].map((i) => (
+                <div key={i} className="flex animate-pulse flex-col" aria-hidden="true">
+                  <div className="aspect-[3/4] w-full bg-maroon/10" />
+                  <div className="px-1 pt-5">
+                    <div className="h-2 w-20 bg-maroon/10" />
+                    <div className="mt-3 h-6 w-3/4 bg-maroon/10" />
+                    <div className="mt-3 h-4 w-1/3 bg-maroon/10" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : products.length === 0 ? (
+            <div className="py-24 text-center">
+              <p className="font-display text-2xl italic text-maroon-ink/40">
+                The atelier could not be reached — check your connection and try
+                again.
+              </p>
+              <button
+                type="button"
+                onClick={() => void retry()}
+                className="mt-6 border-b border-maroon/40 pb-1 font-sans text-[11px] uppercase tracking-[0.35em] text-maroon"
+              >
+                Try again
+              </button>
+            </div>
+          ) : (
+            <p className="py-24 text-center font-display text-2xl italic text-maroon-ink/40">
+              Nothing in this edit yet — something beautiful is coming.
+            </p>
+          )
         ) : (
           <div className="mt-14 grid gap-x-8 gap-y-16 sm:grid-cols-2 lg:grid-cols-3">
             {visible.map((p, i) => (

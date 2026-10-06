@@ -1,5 +1,5 @@
 import { useLayoutEffect, useRef, useCallback } from "react";
-import Lenis from "lenis";
+import type Lenis from "lenis";
 import { getSharedLenis, lenisEasing } from "./SmoothScroll";
 import "./ScrollStack.css";
 
@@ -362,39 +362,49 @@ const ScrollStack = ({
     }
 
     // Inner-scroller mode: own Lenis instance bound to the wrapper,
-    // per the React Bits reference implementation.
+    // per the React Bits reference implementation. Dynamically imported
+    // so mobile (window-scroll/CSS-sticky path above) never bundles lenis.
     let raf = 0;
-    const lenis = new Lenis({
-      wrapper: scroller,
-      content:
-        scroller.querySelector<HTMLElement>(".scroll-stack-inner") ??
-        undefined,
-      duration: 1.2,
-      easing: lenisEasing,
-      smoothWheel: true,
-      touchMultiplier: 2,
-      infinite: false,
-      wheelMultiplier: 1,
-      lerp: 0.1,
-      syncTouch: true,
-      syncTouchLerp: 0.075,
-    });
+    let lenis: Lenis | null = null;
+    let unsub: (() => void) | null = null;
+    let cancelled = false;
+    void import("lenis").then(({ default: LenisCtor }) => {
+      if (cancelled) return;
+      lenis = new LenisCtor({
+        wrapper: scroller,
+        content:
+          scroller.querySelector<HTMLElement>(".scroll-stack-inner") ??
+          undefined,
+        duration: 1.2,
+        easing: lenisEasing,
+        smoothWheel: true,
+        touchMultiplier: 2,
+        infinite: false,
+        wheelMultiplier: 1,
+        lerp: 0.1,
+        syncTouch: true,
+        syncTouchLerp: 0.075,
+      });
+      unsub = lenis.on("scroll", handleLenisScroll);
 
-    const unsub = lenis.on("scroll", handleLenisScroll);
-
-    const rafLoop = (time: number) => {
-      lenis.raf(time);
+      const rafLoop = (time: number) => {
+        if (cancelled || !lenis) return;
+        lenis.raf(time);
+        raf = requestAnimationFrame(rafLoop);
+      };
       raf = requestAnimationFrame(rafLoop);
-    };
-    raf = requestAnimationFrame(rafLoop);
+
+      updateCardTransforms();
+    });
 
     updateCardTransforms();
 
     return () => {
+      cancelled = true;
       cleanups.forEach((fn) => fn());
-      unsub();
+      if (unsub) unsub();
       if (raf) cancelAnimationFrame(raf);
-      lenis.destroy();
+      if (lenis) lenis.destroy();
       stackCompletedRef.current = false;
       cardsRef.current = [];
       cardTopsRef.current = [];

@@ -1,9 +1,12 @@
 import React, { useEffect } from "react";
-import Lenis from "lenis";
+import type Lenis from "lenis";
 
 // Shared window-level Lenis singleton. ScrollStack (window-scroll mode)
 // subscribes to this instance instead of creating a second one — two
 // Lenis instances on the same axis fight each other and cause jitter.
+//
+// Perf: lenis is dynamically imported so mobile (which skips smooth scroll)
+// never downloads/parses it — zero main-thread cost on phones.
 let lenisInstance: Lenis | null = null;
 
 export function getSharedLenis(): Lenis | null {
@@ -35,44 +38,56 @@ function shouldSkipSmoothScroll(): boolean {
 export function SmoothScroll({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (shouldSkipSmoothScroll()) return;
-    const lenis = new Lenis({
-      duration: 1.2,
-      easing: lenisEasing,
-      smoothWheel: true,
-      touchMultiplier: 2,
-      wheelMultiplier: 1,
-      lerp: 0.1,
-      // Native touch scroll on mobile — syncTouch hijacks finger gestures
-      // and blocks scrolling inside fixed modals (e.g. Add Product).
-      syncTouch: false,
-      infinite: false,
-    });
-    lenisInstance = lenis;
+    let cancelled = false;
+    let lenis: Lenis | null = null;
     let rafId = 0;
     let running = true;
-    const raf = (time: number) => {
-      if (!running) return;
-      lenis.raf(time);
-      rafId = requestAnimationFrame(raf);
-    };
-    rafId = requestAnimationFrame(raf);
-    // Perf: don't spin the rAF loop while the tab is hidden.
-    const onVisibility = () => {
-      if (document.hidden) {
-        running = false;
-        cancelAnimationFrame(rafId);
-      } else if (!running) {
-        running = true;
+    let onVisibility: (() => void) | null = null;
+    // Dynamic import keeps lenis out of the initial mobile bundle —
+    // desktop behaviour is identical, init just lands a microtask later.
+    void import("lenis").then(({ default: LenisCtor }) => {
+      if (cancelled) return;
+      lenis = new LenisCtor({
+        duration: 1.2,
+        easing: lenisEasing,
+        smoothWheel: true,
+        touchMultiplier: 2,
+        wheelMultiplier: 1,
+        lerp: 0.1,
+        // Native touch scroll on mobile — syncTouch hijacks finger gestures
+        // and blocks scrolling inside fixed modals (e.g. Add Product).
+        syncTouch: false,
+        infinite: false,
+      });
+      lenisInstance = lenis;
+      const active = lenis;
+      const raf = (time: number) => {
+        if (!running) return;
+        active.raf(time);
         rafId = requestAnimationFrame(raf);
-      }
-    };
-    document.addEventListener("visibilitychange", onVisibility);
+      };
+      rafId = requestAnimationFrame(raf);
+      // Perf: don't spin the rAF loop while the tab is hidden.
+      onVisibility = () => {
+        if (document.hidden) {
+          running = false;
+          cancelAnimationFrame(rafId);
+        } else if (!running) {
+          running = true;
+          rafId = requestAnimationFrame(raf);
+        }
+      };
+      document.addEventListener("visibilitychange", onVisibility);
+    });
     return () => {
+      cancelled = true;
       running = false;
-      document.removeEventListener("visibilitychange", onVisibility);
+      if (onVisibility) document.removeEventListener("visibilitychange", onVisibility);
       cancelAnimationFrame(rafId);
-      lenis.destroy();
-      if (lenisInstance === lenis) lenisInstance = null;
+      if (lenis) {
+        lenis.destroy();
+        if (lenisInstance === lenis) lenisInstance = null;
+      }
     };
   }, []);
   return <>{children}</>;

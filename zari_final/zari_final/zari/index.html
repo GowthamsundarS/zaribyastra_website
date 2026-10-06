@@ -41,6 +41,8 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link rel="preconnect" href="https://res.cloudinary.com" />
+    <link rel="preconnect" href="https://zaribyastra-website.onrender.com" crossorigin />
+    <link rel="dns-prefetch" href="https://zaribyastra-website.onrender.com" />
     <!-- Perf: trimmed to only weights in use (Anton was unused, Amiri used
          once). Fewer bytes + faster LCP on the hero wordmark. -->
     <link
@@ -60,12 +62,15 @@
         href="https://fonts.googleapis.com/css2?family=Amiri:wght@400&family=Cormorant+Garamond:ital,wght@0,500;0,600;1,400&family=Montserrat:wght@500;600&display=swap"
       />
     </noscript>
-    <!-- Perf: LCP image gets top network priority on first load. -->
+    <!-- Perf: responsive LCP preload — same srcset/sizes as the Home intro
+         <img> so mobile fetches the 320w variant (~20KB) instead of the
+         full 941w file, with no double download. -->
     <link
       rel="preload"
       as="image"
-      href="/abaya-intro.webp"
       type="image/webp"
+      imagesrcset="/abaya-intro-320.webp 320w, /abaya-intro-480.webp 480w, /abaya-intro-640.webp 640w, /abaya-intro-800.webp 800w, /abaya-intro.webp 941w"
+      imagesizes="(max-width: 640px) calc(100vw - 48px), 448px"
       fetchpriority="high"
     />
     <script type="application/ld+json">

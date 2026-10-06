@@ -109,123 +109,49 @@ export const COLLECTION_SLOT_COUNT = 4;
 // the UI; the bag and the WhatsApp order still carry a size string.
 export const MADE_TO_MEASURE = "Made to measure";
 
-type SeedInput = Omit<Product, "images"> & { images?: string[] };
+/**
+ * Identities of the hardcoded design-phase seed products that used to be
+ * rendered on first paint (and persisted into old localStorage caches).
+ * They are listed here ONLY so a stale cache entry can be recognised and
+ * dropped during the one-time v2 -> v3 migration below — they must never
+ * be rendered again.
+ */
+const STALE_SEED_IDS = new Set([
+  "salma-leaf",
+  "velvet-zari",
+  "layla-kaftan",
+  "noor-batwing",
+  "hana-open",
+  "zari-trim",
+  "nadja-pleated",
+  "rania-silk",
+  "amara-occasion",
+]);
 
-const SEED_RAW: SeedInput[] = [
-  {
-    id: "salma-leaf",
-    name: "Salma Leaf-Embroidered Abaya",
-    description:
-      "Deep cocoa crepe with hand-stitched gold leaf motifs on the sleeves and a clean column collar — the piece that opens our story.",
-    price: 3299,
-    category: "Premium Collection",
-    image: "/brown-abaya.png",
-    isNew: true,
-    isBestSeller: true,
-    createdAt: 1758000000000,
-  },
-  {
-    id: "velvet-zari",
-    name: "Velvet Zari Occasion Abaya",
-    description:
-      "Fluid velvet worked with fine zari trim, cut for evenings that ask for a little more quiet drama.",
-    price: 5420,
-    category: "Premium Collection",
-    image: "/c7444d7e-59dd-420c-b872-d0034bb735df.jpg",
-    isNew: false,
-    isBestSeller: true,
-    createdAt: 1757500000000,
-  },
-  {
-    id: "layla-kaftan",
-    name: "Layla Embroidered Kaftan",
-    description:
-      "A dusty-rose kaftan in matte satin and silk, embroidered at the cuff in old-gold thread.",
-    price: 4340,
-    category: "Premium Collection",
-    image: "/94ab9240-bcc5-4d4e-9158-3ab38763c2cb.jpg",
-    isNew: true,
-    isBestSeller: false,
-    createdAt: 1757000000000,
-  },
-  {
-    id: "noor-batwing",
-    name: "Noor Batwing Abaya",
-    description:
-      "Featherweight crepe with a sculptural batwing drape — the quiet uniform for every ordinary, sacred day.",
-    price: 2760,
-    category: "Abayas",
-    image: "/29841407-fbf1-4dbf-b871-edae385fd647.jpg",
-    isNew: false,
-    isBestSeller: false,
-    createdAt: 1756500000000,
-  },
-  {
-    id: "hana-open",
-    name: "Hana Open-Front Abaya",
-    description:
-      "An open-front layer in soft ivory crepe, designed to move over everything and compete with nothing.",
-    price: 3150,
-    category: "Abayas",
-    image: "/15483af7-bc75-4e08-9658-218e4c66fce8.jpg",
-    isNew: false,
-    isBestSeller: true,
-    createdAt: 1756000000000,
-  },
-  {
-    id: "zari-trim",
-    name: "Zari Trim Everyday Abaya",
-    description:
-      "Our house abaya, finished with a single hairline of gold zari along the placket.",
-    price: 2499,
-    category: "Abayas",
-    image: "/4ef76c0c-9264-45dd-9b36-340e82a5e4ad.jpg",
-    isNew: true,
-    isBestSeller: false,
-    createdAt: 1755500000000,
-  },
-  {
-    id: "nadja-pleated",
-    name: "Nadja Pleated Abaya",
-    description:
-      "Fine knife pleats fall from the shoulder for a column of gentle, light-catching movement.",
-    price: 3860,
-    category: "Premium Collection",
-    image: "/b5fe8ee5-50e9-45a2-a07e-7e69cc3e0bde.jpg",
-    isNew: false,
-    isBestSeller: false,
-    createdAt: 1755000000000,
-  },
-  {
-    id: "rania-silk",
-    name: "Rania Silk-Crepe Abaya",
-    description:
-      "Matte crepe faced with a whisper of silk — understated sheen, maximum ease.",
-    price: 2980,
-    category: "Abayas",
-    image: "/45456844-bebf-4bf0-97ae-60a075ca50a8.jpg",
-    isNew: false,
-    isBestSeller: true,
-    createdAt: 1754500000000,
-  },
-  {
-    id: "amara-occasion",
-    name: "Amara Occasion Abaya",
-    description:
-      "Structured shoulders and a sweeping hem for the occasions that deserve a entrance.",
-    price: 4720,
-    category: "Premium Collection",
-    image: "/d43366d1-ebbc-486c-aa97-9e399bf79548.jpg",
-    isNew: true,
-    isBestSeller: false,
-    createdAt: 1754000000000,
-  },
-];
+const STALE_SEED_IMAGES = new Set([
+  "/brown-abaya.png",
+  "/c7444d7e-59dd-420c-b872-d0034bb735df.jpg",
+  "/94ab9240-bcc5-4d4e-9158-3ab38763c2cb.jpg",
+  "/29841407-fbf1-4dbf-b871-edae385fd647.jpg",
+  "/15483af7-bc75-4e08-9658-218e4c66fce8.jpg",
+  "/4ef76c0c-9264-45dd-9b36-340e82a5e4ad.jpg",
+  "/b5fe8ee5-50e9-45a2-a07e-7e69cc3e0bde.jpg",
+  "/45456844-bebf-4bf0-97ae-60a075ca50a8.jpg",
+  "/d43366d1-ebbc-486c-aa97-9e399bf79548.jpg",
+]);
 
-const SEED: Product[] = SEED_RAW.map((p) => ({
-  ...p,
-  images: p.images?.length ? [...p.images] : p.image ? [p.image] : [],
-}));
+/** True for a design-phase seed row that must never reach the storefront. */
+function isStaleSeedProduct(p: Product): boolean {
+  if (!p || typeof p !== "object") return true;
+  if (STALE_SEED_IDS.has(String((p as Product).id))) return true;
+  const cover = String((p as Product).image || "");
+  if (STALE_SEED_IMAGES.has(cover)) return true;
+  const gallery = Array.isArray((p as Product).images)
+    ? (p as Product).images
+    : [];
+  if (gallery.some((src) => STALE_SEED_IMAGES.has(String(src)))) return true;
+  return false;
+}
 
 /** Gallery in display order (cover first). Falls back to cover for old rows. */
 export function galleryImages(p: Product): string[] {
@@ -236,11 +162,27 @@ export function galleryImages(p: Product): string[] {
 /** Max photos per product (mirrors backend MAX_IMAGES). */
 export const MAX_PRODUCT_IMAGES = 5;
 
-const KEY = "zari.catalog.v2";
+const KEY = "zari.catalog.v3";
+/** Pre-fix cache keys. v2 may hold real backend products (worth migrating);
+ *  any seed rows inside are filtered out on migration, never rendered. */
+const LEGACY_CATALOG_KEYS = ["zari.catalog.v2"];
+
+/** Shape-check a cached row before trusting it. */
+function isValidCachedProduct(p: unknown): p is Product {
+  if (!p || typeof p !== "object") return false;
+  const row = p as Product;
+  if (typeof row.id !== "string" || !row.id) return false;
+  if (typeof row.name !== "string") return false;
+  if (!Array.isArray(row.images)) return false;
+  if (typeof row.image !== "string") return false;
+  return true;
+}
 
 /**
- * Storage adapter. Swap the bodies of loadProducts/saveProducts for async
- * API calls to move onto a real database without touching any UI code.
+ * Storage adapter for BACKEND products only. The cache is a
+ * stale-while-revalidate accelerator holding the last good API response —
+ * it never contains design-phase imagery, so the storefront either shows
+ * real data or a loading skeleton, never outdated placeholders.
  */
 export function loadProducts(): Product[] {
   try {
@@ -248,17 +190,59 @@ export function loadProducts(): Product[] {
     if (raw) {
       const parsed = JSON.parse(raw) as Product[];
       if (Array.isArray(parsed) && parsed.length) {
-        // Backfill gallery for rows saved before multi-image support.
-        return parsed.map((p) => ({
-          ...p,
-          images: p.images?.length ? p.images : p.image ? [p.image] : [],
-        }));
+        const clean = parsed.filter(
+          (p) => isValidCachedProduct(p) && !isStaleSeedProduct(p)
+        );
+        if (clean.length) {
+          // Backfill gallery for rows saved before multi-image support.
+          return clean.map((p) => ({
+            ...p,
+            images: p.images?.length ? p.images : p.image ? [p.image] : [],
+          }));
+        }
+      }
+    }
+    // One-time migration: adopt real backend products cached by the old
+    // key, minus any seed rows. Afterwards the legacy key is removed so a
+    // stale seed can never be read again.
+    for (const legacyKey of LEGACY_CATALOG_KEYS) {
+      try {
+        const legacyRaw = localStorage.getItem(legacyKey);
+        if (!legacyRaw) continue;
+        const legacyParsed = JSON.parse(legacyRaw) as Product[];
+        if (Array.isArray(legacyParsed) && legacyParsed.length) {
+          const clean = legacyParsed.filter(
+            (p) => isValidCachedProduct(p) && !isStaleSeedProduct(p)
+          );
+          if (clean.length) {
+            const backfilled = clean.map((p) => ({
+              ...p,
+              images: p.images?.length ? p.images : p.image ? [p.image] : [],
+            }));
+            try {
+              localStorage.setItem(KEY, JSON.stringify(backfilled));
+            } catch {
+              /* quota — keep the in-memory state authoritative */
+            }
+            return backfilled;
+          }
+        }
+      } catch {
+        /* corrupt legacy entry — fall through to removal */
+      } finally {
+        try {
+          localStorage.removeItem(legacyKey);
+        } catch {
+          /* ignore */
+        }
       }
     }
   } catch {
-    /* fall through to seed */
+    /* storage blocked — fall through to empty */
   }
-  return SEED;
+  // No cache (e.g. true first visit): callers render a loading skeleton
+  // until the backend responds. Never fall back to hardcoded products.
+  return [];
 }
 
 export function saveProducts(products: Product[]): void {
@@ -269,41 +253,19 @@ export function saveProducts(products: Product[]): void {
   }
 }
 
-const SEED_COLLECTIONS: CollectionSlot[] = [
-  {
-    productId: "velvet-zari",
-    name: "The Burgundy Edit",
-    image: "/c7444d7e-59dd-420c-b872-d0034bb735df.jpg",
-    alt: "Burgundy velvet occasion abaya with gold embroidered cuffs and hem",
-    desc: "Velvet occasion abayas with hand-worked zari hems — the house's most ceremonial drape, dyed the colour of old burgundy wine.",
-  },
-  {
-    productId: "noor-batwing",
-    name: "Everyday Crepe",
-    image: "/29841407-fbf1-4dbf-b871-edae385fd647.jpg",
-    alt: "Cream batwing-sleeve crepe abaya",
-    desc: "Featherweight crepe cut for motion — the quiet uniform for every ordinary, sacred day.",
-  },
-  {
-    productId: "layla-kaftan",
-    name: "Silk Occasion",
-    image: "/94ab9240-bcc5-4d4e-9158-3ab38763c2cb.jpg",
-    alt: "Dusty rose silk kaftan with embroidered sleeves",
-    desc: "Matte satin and silk in dusty rose and old gold, made for evenings that matter.",
-  },
-  {
-    productId: "nadja-pleated",
-    name: "Midnight Pleats",
-    image: "/b5fe8ee5-50e9-45a2-a07e-7e69cc3e0bde.jpg",
-    alt: "Navy pleated abaya with fluted sleeves",
-    desc: "Deep navy crepe with column pleating and fluted cuffs — structure, softened.",
-  },
-];
-
-const COLLECTIONS_KEY = "zari.collections.v1";
+const COLLECTIONS_KEY = "zari.collections.v2";
+/** Removed pre-fix key (held design-phase collection cards). */
+const LEGACY_COLLECTIONS_KEYS = ["zari.collections.v1"];
 
 export function loadCollections(): CollectionSlot[] {
   try {
+    for (const legacyKey of LEGACY_COLLECTIONS_KEYS) {
+      try {
+        localStorage.removeItem(legacyKey);
+      } catch {
+        /* ignore */
+      }
+    }
     const raw = localStorage.getItem(COLLECTIONS_KEY);
     if (raw) {
       const parsed = JSON.parse(raw) as CollectionSlot[];
@@ -311,9 +273,12 @@ export function loadCollections(): CollectionSlot[] {
         return parsed;
     }
   } catch {
-    /* fall through to seed */
+    /* fall through to empty */
   }
-  return SEED_COLLECTIONS;
+  // No hardcoded collection cards: the home stack is derived from real
+  // products (see getExploreCards). An empty list renders nothing rather
+  // than outdated imagery.
+  return [];
 }
 
 export function saveCollections(slots: CollectionSlot[]): void {
