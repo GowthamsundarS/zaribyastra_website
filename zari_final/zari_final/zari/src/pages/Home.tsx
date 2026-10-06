@@ -49,8 +49,8 @@ export function Home() {
                 sizes="(max-width: 640px) calc(100vw - 48px), 448px"
                 alt="Brown abaya with a matching draped hijab"
                 loading="eager"
-                // @ts-expect-error — React 18 types lack fetchPriority; Vite/browsers honour it.
-                fetchPriority="high"
+                // @ts-expect-error — React 18 types lack the hint; lowercase passes through to the DOM.
+                fetchpriority="high"
                 decoding="async"
                 width={896}
                 height={1200}

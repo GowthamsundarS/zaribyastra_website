@@ -55,8 +55,8 @@ function CollectionCard({
           sizes="(max-width: 640px) calc(100vw - 48px), (max-width: 1240px) 55vw, 650px"
           alt={name}
           loading={eager ? "eager" : "lazy"}
-          // @ts-expect-error — React 18 types lack fetchPriority; Vite/browsers honour it.
-          fetchPriority={eager ? "high" : "auto"}
+          // @ts-expect-error — React 18 types lack the hint; lowercase passes through to the DOM.
+          fetchpriority={eager ? "high" : "auto"}
           decoding="async"
           width={896}
           height={1200}

@@ -132,10 +132,12 @@ export function ProductDetail() {
             srcSet={cloudinarySrcSet(photos[shown], [480, 640, 800, 1000, 1200])}
             sizes="(max-width: 1024px) calc(100vw - 48px), 536px"
             alt={product.name}
+            loading="eager"
             decoding="async"
             width={900}
             height={1200}
-            fetchPriority="high"
+            // @ts-expect-error — React 18 types lack the hint; lowercase passes through to the DOM.
+            fetchpriority="high"
             className="aspect-[3/4] w-full object-cover object-top"
           />
           {photos.length > 1 && (
