@@ -310,7 +310,7 @@ function AdminDashboard({ onSignOut }: { onSignOut: () => void }) {
 
   const flash = (msg: string) => {
     setSavedNote(msg);
-    window.setTimeout(() => setSavedNote(null), 2500);
+    window.setTimeout(() => setSavedNote(null), 6000);
   };
 
   // An expired/invalid session clears the token API-side; bounce back
@@ -330,6 +330,11 @@ function AdminDashboard({ onSignOut }: { onSignOut: () => void }) {
   };
 
   const reportError = (e: unknown, fallback: string) => {
+    try {
+      console.error("[Admin save failed]", e);
+    } catch {
+      /* ignore */
+    }
     if (!expireSession(e)) flash(e instanceof Error ? e.message : fallback);
   };
 

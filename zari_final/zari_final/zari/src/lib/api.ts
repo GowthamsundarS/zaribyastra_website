@@ -125,7 +125,16 @@ export function toFrontend(row: BackendProduct): Product {
 // of the public API type).
 const REQUEST_TIMEOUT_MS = 12000;
 
-async function request(path: string, init?: RequestInit): Promise<unknown> {
+// Image uploads go through Cloudinary server-side plus a free-tier
+// cold start — 12s is not enough. Mutations that carry files get a
+// much larger budget so "Saving…" doesn't abort into "Add Product".
+const UPLOAD_TIMEOUT_MS = 120000;
+
+async function request(
+  path: string,
+  init?: RequestInit,
+  timeoutMs: number = REQUEST_TIMEOUT_MS
+): Promise<unknown> {
   let res: Response;
   // Attach the admin session token when present — public reads ignore
   // it, protected mutations require it.
@@ -135,7 +144,7 @@ async function request(path: string, init?: RequestInit): Promise<unknown> {
     headers.set("Authorization", `Bearer ${token}`);
   }
   const ctrl = new AbortController();
-  const timer = window.setTimeout(() => ctrl.abort(), REQUEST_TIMEOUT_MS);
+  const timer = window.setTimeout(() => ctrl.abort(), timeoutMs);
   try {
     try {
       res = await fetch(API_BASE + path, {
@@ -289,10 +298,14 @@ export const api = {
     if (!files.length) throw new Error("Add at least one product image.");
     const fd = fieldsToFormData(form);
     files.forEach((file) => fd.append("images", file));
-    const data = (await request("/products", {
-      method: "POST",
-      body: fd,
-    })) as { product: BackendProduct; images: BackendImage[] };
+    const data = (await request(
+      "/products",
+      {
+        method: "POST",
+        body: fd,
+      },
+      UPLOAD_TIMEOUT_MS
+    )) as { product: BackendProduct; images: BackendImage[] };
     return toFrontend({ ...data.product, images: data.images });
   },
 
@@ -327,10 +340,14 @@ export const api = {
       if (newFiles.length > 0) {
         const fd = new FormData();
         newFiles.forEach((file) => fd.append("images", file));
-        const added = (await request(`/products/${id}/images`, {
-          method: "POST",
-          body: fd,
-        })) as { images: BackendImage[] };
+        const added = (await request(
+          `/products/${id}/images`,
+          {
+            method: "POST",
+            body: fd,
+          },
+          UPLOAD_TIMEOUT_MS
+        )) as { images: BackendImage[] };
         added.images.forEach((img) => addedIds.add(String(img.id)));
       }
 
