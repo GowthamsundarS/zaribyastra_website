@@ -8,11 +8,13 @@ import os
 import secrets
 import time
 import uuid
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta, timezone
 from typing import List
 
 import cloudinary
 import cloudinary.uploader
+from cloudinary.exceptions import AlreadyExists, GeneralError
 
 from dotenv import load_dotenv
 
@@ -51,7 +53,8 @@ load_dotenv()
 cloudinary.config(
     cloud_name=os.getenv("CLOUDINARY_CLOUD_NAME"),
     api_key=os.getenv("CLOUDINARY_API_KEY"),
-    api_secret=os.getenv("CLOUDINARY_API_SECRET")
+    api_secret=os.getenv("CLOUDINARY_API_SECRET"),
+    timeout=30
 )
 
 
@@ -300,6 +303,96 @@ def read_upload_capped(upload: UploadFile) -> bytes:
             )
         )
     return f.read()
+
+
+CLOUDINARY_UPLOAD_TIMEOUT = 60  # seconds per image upload
+CLOUDINARY_RETRY_BACKOFF = 1  # seconds before the single retry
+
+
+def upload_single_image(image_bytes: bytes, public_id: str) -> dict:
+    """Upload one image to Cloudinary with a bounded timeout.
+
+    Retries once on transport-level failures (the SDK wraps socket and
+    urllib3 errors as GeneralError). If the first attempt actually landed
+    but its response was lost, the retry gets AlreadyExists — recover the
+    asset metadata instead of failing the whole save.
+    """
+    upload_kwargs = dict(
+        folder="boutique/products",
+        public_id=public_id,
+        resource_type="image",
+        overwrite=False,
+        timeout=CLOUDINARY_UPLOAD_TIMEOUT,
+    )
+    try:
+        return cloudinary.uploader.upload(io.BytesIO(image_bytes), **upload_kwargs)
+    except GeneralError as first_error:
+        time.sleep(CLOUDINARY_RETRY_BACKOFF)
+        try:
+            return cloudinary.uploader.upload(io.BytesIO(image_bytes), **upload_kwargs)
+        except AlreadyExists:
+            return cloudinary.uploader.explicit(
+                public_id, type="upload", timeout=CLOUDINARY_UPLOAD_TIMEOUT
+            )
+        except Exception:
+            raise first_error
+
+
+def prepare_image_uploads(images: List[UploadFile], product_id: str):
+    """Validate and read uploads locally, in order.
+
+    Kept sequential so 400/413 responses are identical to before: nothing
+    reaches Cloudinary unless every image passes type, size and name checks.
+    """
+    prepared = []
+    for image in images:
+        if image.content_type not in ALLOWED_IMAGE_TYPES:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"Invalid image type: "
+                    f"{image.content_type}. "
+                    f"Allowed types: JPG, PNG, WEBP."
+                )
+            )
+        if not image.filename:
+            raise HTTPException(
+                status_code=400,
+                detail="Image filename is missing"
+            )
+        prepared.append((
+            read_upload_capped(image),
+            f"{product_id}_{uuid.uuid4().hex}",
+        ))
+    return prepared
+
+
+def upload_images_concurrently(prepared):
+    """Upload (bytes, public_id) pairs to Cloudinary in parallel.
+
+    Returns (results, error): results align with input order (None where
+    the upload failed), error is the first failure or None. Callers record
+    the partial successes so their rollback destroys everything uploaded.
+    """
+    results = [None] * len(prepared)
+    error = None
+    if not prepared:
+        return results, error
+    with ThreadPoolExecutor(
+        max_workers=min(len(prepared), MAX_IMAGES)
+    ) as pool:
+        futures = {
+            pool.submit(upload_single_image, image_bytes, public_id): index
+            for index, (image_bytes, public_id) in enumerate(prepared)
+        }
+        for future in as_completed(futures):
+            index = futures[future]
+            try:
+                results[index] = future.result()
+            except Exception as e:
+                if error is None:
+                    error = e
+    return results, error
 
 
 def internal_error(context: str, e: Exception) -> HTTPException:
@@ -960,7 +1053,7 @@ def admin_change_password(
 # =========================================================
 
 @app.post("/products")
-async def create_product(
+def create_product(
 
     # IMPORTANT:
     # File parameter comes BEFORE the other parameters
@@ -1127,94 +1220,35 @@ async def create_product(
 
     # =====================================================
     # STEP 2
-    # UPLOAD IMAGES TO CLOUDINARY
+    # UPLOAD IMAGES TO CLOUDINARY (concurrently — a 5-image
+    # create is one upload's wall-clock, not five)
     # =====================================================
 
     uploaded_images = []
 
     try:
 
-        for image in images:
+        prepared_uploads = prepare_image_uploads(images, product_id)
 
-            # -------------------------------------------------
-            # Validate image type
-            # -------------------------------------------------
+        upload_results, upload_error = upload_images_concurrently(prepared_uploads)
 
-            if image.content_type not in ALLOWED_IMAGE_TYPES:
+        # Record in input order (staggered created_at keeps upload
+        # order = gallery order under `order by created_at`)
+        for result in upload_results:
 
-                raise HTTPException(
-                    status_code=400,
-                    detail=(
-                        f"Invalid image type: "
-                        f"{image.content_type}. "
-                        f"Allowed types: JPG, PNG, WEBP."
-                    )
-                )
-
-
-            # -------------------------------------------------
-            # Validate filename
-            # -------------------------------------------------
-
-            if not image.filename:
-
-                raise HTTPException(
-                    status_code=400,
-                    detail="Image filename is missing"
-                )
-
-
-            # -------------------------------------------------
-            # Generate unique Cloudinary public ID
-            # -------------------------------------------------
-
-            unique_name = (
-                f"{product_id}_"
-                f"{uuid.uuid4().hex}"
-            )
-
-
-            # -------------------------------------------------
-            # Enforce size cap, then upload to Cloudinary
-            # -------------------------------------------------
-
-            image_bytes = read_upload_capped(image)
-
-            result = cloudinary.uploader.upload(
-
-                io.BytesIO(image_bytes),
-
-                folder="boutique/products",
-
-                public_id=unique_name,
-
-                resource_type="image",
-
-                overwrite=False
-            )
-
-
-            # -------------------------------------------------
-            # Get Cloudinary information
-            # -------------------------------------------------
-
-            image_url = result["secure_url"]
-
-            public_id = result["public_id"]
-
-
-            # -------------------------------------------------
-            # Store information temporarily
-            # (staggered created_at keeps upload order = gallery
-            # order under `order by created_at`)
-            # -------------------------------------------------
+            if result is None:
+                continue
 
             uploaded_images.append({
                 "product_id": product_id,
-                "image_url": image_url,
-                "public_id": public_id,
+                "image_url": result["secure_url"],
+                "public_id": result["public_id"],
                 "created_at": staggered_timestamp(len(uploaded_images))
             })
+
+
+        if upload_error is not None:
+            raise upload_error
 
 
     # =====================================================
@@ -1679,7 +1713,7 @@ def update_product(
 # =========================================================
 
 @app.post("/products/{product_id}/images")
-async def add_product_images(
+def add_product_images(
     product_id: str,
     images: List[UploadFile] = File(...),
     admin: str = Depends(require_admin),
@@ -1733,39 +1767,13 @@ async def add_product_images(
 
     try:
 
-        for image in images:
+        prepared_uploads = prepare_image_uploads(images, product_id)
 
-            if image.content_type not in ALLOWED_IMAGE_TYPES:
-                raise HTTPException(
-                    status_code=400,
-                    detail=(
-                        f"Invalid image type: "
-                        f"{image.content_type}. "
-                        f"Allowed types: JPG, PNG, WEBP."
-                    )
-                )
+        upload_results, upload_error = upload_images_concurrently(prepared_uploads)
 
-            if not image.filename:
-                raise HTTPException(
-                    status_code=400,
-                    detail="Image filename is missing"
-                )
-
-            unique_name = (
-                f"{product_id}_"
-                f"{uuid.uuid4().hex}"
-            )
-
-            image_bytes = read_upload_capped(image)
-
-            result = cloudinary.uploader.upload(
-                io.BytesIO(image_bytes),
-                folder="boutique/products",
-                public_id=unique_name,
-                resource_type="image",
-                overwrite=False
-            )
-
+        for result in upload_results:
+            if result is None:
+                continue
             uploaded_images.append({
                 "product_id": product_id,
                 "image_url": result["secure_url"],
@@ -1774,6 +1782,9 @@ async def add_product_images(
                     existing_count + len(uploaded_images)
                 )
             })
+
+        if upload_error is not None:
+            raise upload_error
 
     except HTTPException:
         for uploaded in uploaded_images:

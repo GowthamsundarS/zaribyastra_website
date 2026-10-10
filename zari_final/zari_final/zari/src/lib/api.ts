@@ -130,6 +130,15 @@ const REQUEST_TIMEOUT_MS = 12000;
 // much larger budget so "Saving…" doesn't abort into "Add Product".
 const UPLOAD_TIMEOUT_MS = 120000;
 
+// A save is several round trips (fields PUT, re-read, prune, reorder).
+// On a slow link the 12s storefront fail-fast kills these after a
+// 120s upload already succeeded, so save steps get their own budget.
+const SAVE_STEP_TIMEOUT_MS = 45000;
+
+// Kept image URLs are re-read client-side before upload; a remote URL
+// must not hang the save forever.
+const IMAGE_URL_TIMEOUT_MS = 30000;
+
 async function request(
   path: string,
   init?: RequestInit,
@@ -212,7 +221,16 @@ export interface ImageSelection {
 async function selectionToFile(sel: ImageSelection, index: number): Promise<File> {
   if (sel.file) return sel.file;
   if (sel.url) {
-    const res = await fetch(sel.url);
+    const ctrl = new AbortController();
+    const timer = window.setTimeout(() => ctrl.abort(), IMAGE_URL_TIMEOUT_MS);
+    let res: Response;
+    try {
+      res = await fetch(sel.url, { signal: ctrl.signal });
+    } catch {
+      throw new Error(`Could not read image ${index + 1}.`);
+    } finally {
+      window.clearTimeout(timer);
+    }
     if (!res.ok) throw new Error(`Could not read image ${index + 1}.`);
     const blob = await res.blob();
     const ext = (blob.type.split("/")[1] || "jpg").split("+")[0];
@@ -278,10 +296,14 @@ export const api = {
   createCategory: async (name: string): Promise<string> => {
     const fd = new FormData();
     fd.append("name", name.trim());
-    const data = (await request("/categories", {
-      method: "POST",
-      body: fd,
-    })) as { category?: string; categories?: string[] };
+    const data = (await request(
+      "/categories",
+      {
+        method: "POST",
+        body: fd,
+      },
+      SAVE_STEP_TIMEOUT_MS
+    )) as { category?: string; categories?: string[] };
     return (data.category ?? name).trim() || name.trim();
   },
 
@@ -320,13 +342,21 @@ export const api = {
     form: ProductForm,
     selections?: ImageSelection[]
   ): Promise<Product> => {
-    await request(`/products/${id}`, {
-      method: "PUT",
-      body: fieldsToFormData(form),
-    });
+    await request(
+      `/products/${id}`,
+      {
+        method: "PUT",
+        body: fieldsToFormData(form),
+      },
+      SAVE_STEP_TIMEOUT_MS
+    );
 
     if (selections && selections.length > 0) {
-      const fresh = (await request(`/products/${id}`)) as BackendProduct;
+      const fresh = (await request(
+        `/products/${id}`,
+        undefined,
+        SAVE_STEP_TIMEOUT_MS
+      )) as BackendProduct;
       const rows = fresh.images ?? [];
 
       const newFiles = selections
@@ -363,11 +393,19 @@ export const api = {
           ? victims
           : victims.slice(0, Math.max(0, survivors - 1));
       for (const v of deletable) {
-        await request(`/product-images/${v.id}`, { method: "DELETE" });
+        await request(
+          `/product-images/${v.id}`,
+          { method: "DELETE" },
+          SAVE_STEP_TIMEOUT_MS
+        );
       }
     }
 
-    const done = (await request(`/products/${id}`)) as BackendProduct;
+    const done = (await request(
+      `/products/${id}`,
+      undefined,
+      SAVE_STEP_TIMEOUT_MS
+    )) as BackendProduct;
     const mapped = toFrontend(done);
 
     // Persist gallery order (cover first) when the backend supports it.
@@ -412,11 +450,15 @@ export const api = {
       }
       if (order.length > 1) {
         try {
-          const reordered = (await request(`/products/${id}/images/order`, {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ image_ids: order }),
-          })) as { images: BackendImage[] };
+          const reordered = (await request(
+            `/products/${id}/images/order`,
+            {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ image_ids: order }),
+            },
+            SAVE_STEP_TIMEOUT_MS
+          )) as { images: BackendImage[] };
           if (Array.isArray(reordered.images) && reordered.images.length) {
             return toFrontend({ ...done, images: reordered.images });
           }
