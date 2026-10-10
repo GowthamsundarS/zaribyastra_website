@@ -11,6 +11,7 @@ import {
   type ImageSelection,
   type ProductForm,
 } from "../lib/api";
+import { cloudinarySrc } from "../utils/cloudinary";
 import {
   clearCollections,
   DEFAULT_CATEGORIES,
@@ -78,6 +79,57 @@ const FULL_FORM = (p: Product): ProductForm => ({
   isNew: p.isNew,
   isBestSeller: p.isBestSeller,
 });
+
+// ---------------------------------------------------------------------------
+// HOME CACHE WARM (prefetch during the loading state)
+// ---------------------------------------------------------------------------
+// The home stack renders up to four explore cards. While `loading` is
+// still true (after the catalog JSON arrives), their cover images are
+// fetched and decoded here so the moment the skeleton is replaced the
+// finished layout paints from cache — no mid-scroll image pop-in on
+// slow networks. Kept deliberately small:
+//   * only the Cloudinary covers Home actually shows (<= 4 files),
+//   * one right-sized rung per viewport (matches the srcSet pick the
+//     <img> will make, so it is a cache hit, not a second download),
+//   * hard 1.2s budget — the loading state never stretches beyond it,
+//     stragglers keep filling the HTTP cache in the background,
+//   * skipped entirely when the user has Data Saver on.
+
+const HOME_WARM_BUDGET_MS = 1200;
+
+function homeWarmWidth(): number {
+  const vw = window.innerWidth;
+  if (vw <= 640) return 480;
+  if (vw <= 1240) return 640;
+  return 800;
+}
+
+function isDataSaver(): boolean {
+  const conn = (
+    navigator as unknown as { connection?: { saveData?: boolean } }
+  ).connection;
+  return Boolean(conn?.saveData);
+}
+
+async function warmHomeCache(products: Product[]): Promise<void> {
+  if (typeof window === "undefined" || isDataSaver()) return;
+  const cards = getExploreCards(products, loadExplorePins());
+  const width = homeWarmWidth();
+  const urls = cards
+    .map((p) => cloudinarySrc(p.image?.trim() || "", width))
+    .filter((u) => Boolean(u) && u.includes("res.cloudinary.com"));
+  if (!urls.length) return;
+  const loads = urls.map((url) => {
+    const img = new Image();
+    img.decoding = "async";
+    img.src = url;
+    return img.decode().catch(() => undefined);
+  });
+  await Promise.race([
+    Promise.allSettled(loads),
+    new Promise((resolve) => setTimeout(resolve, HOME_WARM_BUDGET_MS)),
+  ]);
+}
 
 // Catalog backed by the FastAPI backend. Collections stay in localStorage
 // (they are storefront dressing, not products). The initial state is the
@@ -195,6 +247,7 @@ export function CatalogProvider({ children }: { children: React.ReactNode }) {
           setProducts(list);
           saveProducts(list);
           setOnline(true);
+          await warmHomeCache(list);
         }
       } catch {
         if (!cancelled) {
@@ -216,8 +269,9 @@ export function CatalogProvider({ children }: { children: React.ReactNode }) {
   const retry = useCallback(async (): Promise<void> => {
     setLoading(true);
     try {
-      await refresh();
+      const list = await refresh();
       setOnline(true);
+      await warmHomeCache(list);
     } catch {
       setOnline(false);
     } finally {
